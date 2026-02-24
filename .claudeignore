@@ -1,0 +1,34 @@
+# ── 패키지 / 빌드 (가장 큰 토큰 낭비) ──
+node_modules/
+.next/
+.turbo/
+dist/
+build/
+out/
+
+# ── 락 파일 ──
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ── 환경변수 (보안) ──
+.env
+.env.local
+.env.*.local
+
+# ── 캐시 / 빌드 메타 ──
+.cache/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── 테스트 커버리지 ──
+coverage/
+
+# ── OS / 에디터 ──
+.DS_Store
+.idea/
+.vscode/
+
+# ── Supabase 로컬 ──
+supabase/.branches/
+supabase/.temp/

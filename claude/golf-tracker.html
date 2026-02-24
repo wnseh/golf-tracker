@@ -1,0 +1,2555 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CADDIE — Golf Round Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --surface: #111116;
+    --surface2: #18181f;
+    --surface3: #1e1e28;
+    --border: #2a2a38;
+    --border2: #3a3a50;
+    --text: #e8e8f0;
+    --text2: #9090a8;
+    --text3: #55556a;
+    --accent: #4ade80;
+    --accent2: #22c55e;
+    --accent-dim: rgba(74,222,128,0.12);
+    --red: #f87171;
+    --red-dim: rgba(248,113,113,0.12);
+    --blue: #60a5fa;
+    --blue-dim: rgba(96,165,250,0.12);
+    --yellow: #fbbf24;
+    --yellow-dim: rgba(251,191,36,0.12);
+    --purple: #a78bfa;
+    --r: 12px;
+    --r-sm: 8px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100dvh;
+    max-width: 430px;
+    margin: 0 auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ─── NAV ─── */
+  .nav {
+    position: fixed; top:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:430px;
+    background: rgba(10,10,12,0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+  }
+  .nav-logo { font-family: 'Bebas Neue'; font-size: 22px; letter-spacing: 3px; color: var(--accent); }
+  .nav-round-info { text-align:right; }
+  .nav-round-info .hole-label { font-family:'DM Mono'; font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:1px; }
+  .nav-round-info .hole-num { font-family:'DM Mono'; font-size:18px; color:var(--text); font-weight:500; }
+
+  /* ─── PAGES ─── */
+  .page { display:none; padding-top:62px; padding-bottom:80px; min-height:100dvh; }
+  .page.active { display:block; }
+
+  /* ─── BOTTOM TAB BAR ─── */
+  .tab-bar {
+    position: fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:430px;
+    background: rgba(10,10,12,0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    z-index: 100;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tab-btn {
+    flex:1; padding:12px 4px; background:none; border:none; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    color: var(--text3); transition: color 0.2s;
+  }
+  .tab-btn.active { color: var(--accent); }
+  .tab-btn svg { width:20px; height:20px; }
+  .tab-btn span { font-size:10px; font-weight:500; letter-spacing:0.5px; }
+
+  /* ─── HOME PAGE ─── */
+  .home-header {
+    padding: 24px 20px 20px;
+  }
+  .home-title { font-family:'Bebas Neue'; font-size:42px; letter-spacing:2px; line-height:1; }
+  .home-subtitle { color:var(--text2); font-size:13px; margin-top:4px; }
+
+  .round-card {
+    margin: 0 16px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .round-card:active { border-color: var(--accent); }
+  .round-card .rc-accent-bar {
+    position:absolute; top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+  }
+  .round-card-date { font-family:'DM Mono'; font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:1px; }
+  .round-card-course { font-size:17px; font-weight:600; margin:4px 0 10px; }
+  .round-card-stats { display:flex; gap:16px; }
+  .rc-stat { }
+  .rc-stat-val { font-family:'DM Mono'; font-size:22px; font-weight:500; color:var(--accent); }
+  .rc-stat-label { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-top:1px; }
+
+  .btn-new-round {
+    margin: 16px 16px 0;
+    width: calc(100% - 32px);
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--r);
+    padding: 16px;
+    font-family:'DM Sans'; font-size:15px; font-weight:600;
+    letter-spacing:0.5px;
+    cursor: pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition: background 0.2s;
+  }
+  .btn-new-round:active { background: var(--accent2); }
+
+  .section-label {
+    padding: 20px 20px 10px;
+    font-family:'DM Mono'; font-size:11px; color:var(--text3);
+    text-transform:uppercase; letter-spacing:1.5px;
+  }
+
+  /* ─── SCORECARD / HOLE INPUT ─── */
+  .hole-nav {
+    display:flex; align-items:center; gap:8px;
+    padding: 16px 16px 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .hole-nav::-webkit-scrollbar { display:none; }
+  .hole-chip {
+    flex-shrink:0;
+    width:36px; height:36px;
+    border-radius:50%;
+    border: 1.5px solid var(--border);
+    background: none;
+    color: var(--text2);
+    font-family:'DM Mono'; font-size:13px;
+    cursor:pointer; transition: all 0.15s;
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .hole-chip.active { border-color: var(--accent); color:var(--accent); background:var(--accent-dim); }
+  .hole-chip.completed { border-color: var(--border2); background:var(--surface2); }
+  .hole-chip.completed::after {
+    content:''; position:absolute; bottom:2px; right:2px;
+    width:7px; height:7px; border-radius:50%;
+    background: var(--accent);
+  }
+  .hole-chip.over-par { }
+  .hole-chip.over-par::after { background: var(--red); }
+  .hole-chip.under-par::after { background: var(--accent); }
+  .hole-chip.even-par::after { background: var(--text3); }
+
+  .hole-header {
+    padding: 16px 20px 8px;
+    display:flex; justify-content:space-between; align-items:flex-end;
+  }
+  .hole-big { font-family:'Bebas Neue'; font-size:56px; line-height:1; letter-spacing:1px; }
+  .hole-big span { color:var(--text3); font-size:28px; }
+  .hole-par-m { text-align:right; }
+  .hole-par { font-family:'DM Mono'; font-size:13px; color:var(--text2); }
+  .hole-m { font-family:'DM Mono'; font-size:28px; font-weight:500; color:var(--text); }
+  .hole-m small { font-size:12px; color:var(--text3); }
+
+  /* ─── INPUT SECTIONS ─── */
+  .input-section {
+    margin: 8px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+  }
+  .input-section-header {
+    padding: 12px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom: 1px solid var(--border);
+    cursor:pointer;
+  }
+  .ish-left { display:flex; align-items:center; gap:10px; }
+  .ish-icon {
+    width:28px; height:28px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px;
+  }
+  .ish-icon.green { background:var(--accent-dim); }
+  .ish-icon.red { background:var(--red-dim); }
+  .ish-icon.blue { background:var(--blue-dim); }
+  .ish-icon.yellow { background:var(--yellow-dim); }
+  .ish-title { font-size:13px; font-weight:600; }
+  .ish-status { font-family:'DM Mono'; font-size:11px; color:var(--text3); }
+  .ish-chevron { color:var(--text3); transition:transform 0.2s; }
+  .ish-chevron.open { transform:rotate(180deg); }
+
+  .input-section-body {
+    padding: 14px 16px;
+    display:none;
+  }
+  .input-section-body.open { display:block; }
+
+  /* ─── FORM ELEMENTS ─── */
+  .field-row { display:flex; gap:8px; margin-bottom:10px; }
+  .field-row:last-child { margin-bottom:0; }
+  .field { flex:1; }
+  .field label { display:block; font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:5px; font-family:'DM Mono'; }
+  .field input, .field select {
+    width:100%;
+    background: var(--surface3);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--text);
+    font-family:'DM Mono'; font-size:16px;
+    padding: 10px 12px;
+    outline:none;
+    transition: border-color 0.15s;
+    -webkit-appearance:none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field input[type="number"] { text-align:center; }
+
+  /* ─── TOGGLE BUTTONS ─── */
+  .toggle-group { display:flex; gap:6px; flex-wrap:wrap; }
+  .toggle-btn {
+    flex:1; min-width:0;
+    background: var(--surface3);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--text2);
+    font-family:'DM Sans'; font-size:12px; font-weight:500;
+    padding: 9px 6px;
+    cursor:pointer; transition: all 0.15s;
+    text-align:center;
+    white-space: nowrap;
+  }
+  .toggle-btn.active { border-color: var(--accent); background:var(--accent-dim); color:var(--accent); }
+  .toggle-btn.active-red { border-color: var(--red); background:var(--red-dim); color:var(--red); }
+  .toggle-btn.active-blue { border-color: var(--blue); background:var(--blue-dim); color:var(--blue); }
+  .toggle-btn.active-yellow { border-color: var(--yellow); background:var(--yellow-dim); color:var(--yellow); }
+
+  /* ─── SCORE STEPPER ─── */
+  .score-stepper {
+    display:flex; align-items:center; justify-content:center; gap:20px;
+    padding: 8px 0;
+  }
+  .step-btn {
+    width:44px; height:44px; border-radius:50%;
+    background: var(--surface3); border: 1.5px solid var(--border);
+    color: var(--text); font-size:22px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition: all 0.15s; font-weight:300;
+  }
+  .step-btn:active { background:var(--surface3); border-color:var(--accent); color:var(--accent); }
+  .score-display {
+    text-align:center;
+    min-width: 80px;
+  }
+  .score-big { font-family:'DM Mono'; font-size:52px; font-weight:500; line-height:1; }
+  .score-vs-par { font-size:12px; font-weight:600; margin-top:2px; letter-spacing:0.5px; }
+  .score-vs-par.eagle { color: var(--yellow); }
+  .score-vs-par.birdie { color: var(--accent); }
+  .score-vs-par.par { color: var(--text3); }
+  .score-vs-par.bogey { color: var(--red); }
+  .score-vs-par.double { color: var(--red); }
+
+  /* ─── PUTT TRACKER ─── */
+  .putt-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
+  .putt-dist-btn {
+    aspect-ratio:1; border-radius:var(--r-sm);
+    background:var(--surface3); border:1.5px solid var(--border);
+    color:var(--text2); font-family:'DM Mono'; font-size:13px;
+    cursor:pointer; transition: all 0.15s;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .putt-dist-btn.active { border-color:var(--blue); background:var(--blue-dim); color:var(--blue); }
+  .putt-made { display:flex; gap:8px; margin-top:10px; }
+  .result-btn {
+    flex:1; padding:10px;
+    border-radius:var(--r-sm); background:var(--surface3); border:1.5px solid var(--border);
+    color:var(--text2); font-size:13px; font-weight:500; cursor:pointer;
+    text-align:center; transition:all 0.15s;
+  }
+  .result-btn.made { border-color:var(--accent); background:var(--accent-dim); color:var(--accent); }
+  .result-btn.missed { border-color:var(--red); background:var(--red-dim); color:var(--red); }
+
+  /* ─── SAVE HOLE BTN ─── */
+  .btn-save-hole {
+    margin: 12px 16px;
+    width: calc(100% - 32px);
+    background: var(--accent);
+    color: #000; border:none;
+    border-radius:var(--r); padding:16px;
+    font-family:'DM Sans'; font-size:15px; font-weight:700;
+    cursor:pointer; letter-spacing:0.5px;
+    transition: background 0.15s;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-save-hole:active { background:var(--accent2); }
+
+  /* ─── STATS PAGE ─── */
+  .stats-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stats-title { font-family:'Bebas Neue'; font-size:36px; letter-spacing:2px; }
+  .stats-round-sel { margin-top:10px; }
+
+  .sg-overview {
+    margin: 16px 16px 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow:hidden;
+  }
+  .sg-row {
+    display:flex; align-items:center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    gap:12px;
+  }
+  .sg-row:last-child { border-bottom:none; }
+  .sg-label { flex:1; font-size:13px; color:var(--text2); }
+  .sg-bar-wrap { flex:2; height:6px; background:var(--surface3); border-radius:3px; overflow:hidden; }
+  .sg-bar { height:100%; border-radius:3px; transition: width 0.6s ease; }
+  .sg-bar.pos { background: var(--accent); }
+  .sg-bar.neg { background: var(--red); }
+  .sg-val { font-family:'DM Mono'; font-size:14px; min-width:48px; text-align:right; }
+  .sg-val.pos { color:var(--accent); }
+  .sg-val.neg { color:var(--red); }
+
+  .stat-grid {
+    display:grid; grid-template-columns:1fr 1fr;
+    gap:10px; padding:16px;
+  }
+  .stat-tile {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 14px;
+  }
+  .stat-tile-val { font-family:'DM Mono'; font-size:26px; font-weight:500; }
+  .stat-tile-label { font-size:11px; color:var(--text3); margin-top:4px; text-transform:uppercase; letter-spacing:0.5px; }
+
+  .miss-chart {
+    margin: 0 16px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 16px;
+  }
+  .miss-title { font-size:12px; color:var(--text3); text-transform:uppercase; letter-spacing:1px; font-family:'DM Mono'; margin-bottom:12px; }
+  .miss-grid {
+    display:grid; grid-template-columns:1fr 1fr 1fr;
+    grid-template-rows:1fr 1fr 1fr;
+    gap:6px; aspect-ratio: 1.5;
+  }
+  .miss-cell {
+    border-radius:var(--r-sm);
+    background:var(--surface3);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'DM Mono'; font-size:18px; font-weight:500;
+    border:1.5px solid var(--border);
+    transition: all 0.3s;
+    position:relative;
+  }
+  .miss-cell.center { border-color:var(--accent); background:var(--accent-dim); }
+  .miss-cell .cell-count {
+    font-size:20px; font-weight:500;
+  }
+  .miss-cell .cell-label { font-size:9px; color:var(--text3); position:absolute; bottom:5px; left:0; right:0; text-align:center; text-transform:uppercase; letter-spacing:0.5px; }
+  .miss-cell-heat { background:rgba(248,113,113,0); }
+
+  /* ─── HISTORY / SCORECARD FULL ─── */
+  .scorecard-table {
+    margin: 0 16px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow:hidden;
+  }
+  .sc-thead {
+    display:grid; grid-template-columns:32px 1fr 1fr 1fr 1fr 1fr;
+    padding:8px 10px;
+    background:var(--surface3);
+    border-bottom: 1px solid var(--border);
+  }
+  .sc-thead div { font-family:'DM Mono'; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; text-align:center; }
+  .sc-thead div:first-child { text-align:left; }
+  .sc-row {
+    display:grid; grid-template-columns:32px 1fr 1fr 1fr 1fr 1fr;
+    padding:9px 10px;
+    border-bottom: 1px solid var(--border);
+    align-items:center;
+    transition: background 0.15s;
+  }
+  .sc-row:last-child { border-bottom:none; }
+  .sc-row:active { background:var(--surface3); }
+  .sc-row div { font-family:'DM Mono'; font-size:13px; text-align:center; color:var(--text2); }
+  .sc-row div:first-child { color:var(--text3); text-align:left; font-size:12px; }
+  .sc-score { position:relative; }
+  .sc-score-inner {
+    width:26px; height:26px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'DM Mono'; font-size:13px; font-weight:500;
+    margin:0 auto;
+  }
+  .sc-score-inner.birdie { background:var(--accent-dim); color:var(--accent); border:1.5px solid var(--accent); }
+  .sc-score-inner.eagle { background:var(--yellow-dim); color:var(--yellow); border:1.5px solid var(--yellow); }
+  .sc-score-inner.bogey { background:var(--red-dim); color:var(--red); border:1px solid var(--red); }
+  .sc-score-inner.double { background:rgba(248,113,113,0.2); color:var(--red); border:2px solid var(--red); border-radius:3px; }
+  .sc-score-inner.par { color:var(--text); }
+
+  /* ─── NEW ROUND MODAL ─── */
+  .modal-overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.8);
+    backdrop-filter:blur(8px);
+    z-index:200;
+    align-items:flex-end;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal-sheet {
+    width:100%; max-width:430px; margin:0 auto;
+    background:var(--surface);
+    border-radius: 24px 24px 0 0;
+    padding:20px 20px 40px;
+    border-top:1px solid var(--border);
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+  .modal-handle {
+    width:40px; height:4px; border-radius:2px;
+    background:var(--border2); margin:0 auto 20px;
+  }
+  .modal-title { font-family:'Bebas Neue'; font-size:28px; letter-spacing:2px; margin-bottom:16px; }
+  .modal-field { margin-bottom:12px; }
+  .modal-field label { display:block; font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:5px; font-family:'DM Mono'; }
+  .modal-field input, .modal-field select {
+    width:100%; background:var(--surface2); border:1.5px solid var(--border);
+    border-radius:var(--r-sm); color:var(--text);
+    font-family:'DM Sans'; font-size:15px; padding:12px 14px; outline:none;
+    transition: border-color 0.15s; -webkit-appearance:none;
+  }
+  .modal-field input:focus, .modal-field select:focus { border-color:var(--accent); }
+  .modal-row { display:flex; gap:8px; }
+  .modal-row .modal-field { flex:1; }
+  .btn-start-round {
+    width:100%; margin-top:8px;
+    background:var(--accent); color:#000; border:none;
+    border-radius:var(--r); padding:16px;
+    font-family:'DM Sans'; font-size:16px; font-weight:700;
+    cursor:pointer; transition:background 0.15s;
+  }
+  .btn-start-round:active { background:var(--accent2); }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position:fixed; top:80px; left:50%; transform:translateX(-50%);
+    background:var(--accent); color:#000;
+    padding:10px 20px; border-radius:99px;
+    font-weight:600; font-size:14px;
+    z-index:300; opacity:0;
+    transition: opacity 0.3s;
+    pointer-events:none; white-space:nowrap;
+  }
+  .toast.show { opacity:1; }
+
+  /* ─── EMPTY STATE ─── */
+  .empty-state {
+    text-align:center; padding:60px 24px;
+    color:var(--text3);
+  }
+  .empty-state .es-icon { font-size:48px; margin-bottom:16px; }
+  .empty-state .es-title { font-size:16px; color:var(--text2); font-weight:500; margin-bottom:8px; }
+  .empty-state .es-sub { font-size:13px; line-height:1.6; }
+
+  /* ─── CHART ─── */
+  .putt-dist-chart {
+    margin: 0 16px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 16px;
+  }
+  .chart-bars {
+    display:flex; align-items:flex-end; gap:6px; height:80px;
+    margin-top:10px;
+  }
+  .chart-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end; }
+  .chart-bar {
+    width:100%; border-radius:4px 4px 0 0;
+    min-height:4px; transition: height 0.5s ease;
+  }
+  .chart-bar.made { background:var(--accent); }
+  .chart-bar.missed { background:var(--red); }
+  .chart-bar-label { font-family:'DM Mono'; font-size:9px; color:var(--text3); }
+  .chart-legend { display:flex; gap:14px; margin-top:10px; justify-content:flex-end; }
+  .legend-item { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--text3); }
+  .legend-dot { width:8px; height:8px; border-radius:2px; }
+
+  /* ─── ROUTINE BLOCKS ─── */
+  .routine-block {
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    background: var(--surface3);
+  }
+  .routine-header {
+    display: flex; align-items: center; gap:8px;
+    padding: 10px 12px; cursor: pointer;
+    user-select: none;
+  }
+  .routine-badge {
+    font-family: 'DM Mono'; font-size: 9px; font-weight: 500;
+    padding: 3px 7px; border-radius: 99px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .routine-badge.pre  { background: var(--blue-dim);   color: var(--blue);   border: 1px solid var(--blue); }
+  .routine-badge.post { background: var(--yellow-dim); color: var(--yellow); border: 1px solid var(--yellow); }
+  .routine-badge.putt { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); }
+  .routine-title { font-size: 12px; font-weight: 600; flex: 1; color: var(--text2); }
+  .routine-chevron { color: var(--text3); transition: transform 0.2s; flex-shrink:0; }
+  .routine-chevron.open { transform: rotate(180deg); }
+  .routine-body { padding: 12px; border-top: 1px solid var(--border); display:none; }
+  .routine-body.open { display: block; }
+  .routine-sub-label {
+    font-family: 'DM Mono'; font-size: 9px; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 6px; margin-top: 2px;
+  }
+
+  /* ─── MINI TOGGLE ─── */
+  .mini-toggle-group { display: flex; gap: 5px; flex-wrap: wrap; }
+  .mtb {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 5px; color: var(--text3);
+    font-family: 'DM Sans'; font-size: 11px; font-weight:500;
+    padding: 6px 9px; cursor: pointer; transition: all 0.12s;
+    white-space: nowrap;
+  }
+  .mtb.active { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+
+  /* ─── SHAPE ROW ─── */
+  .shape-row { display: flex; gap: 4px; }
+  .shp-btn {
+    flex: 1; padding: 7px 2px; text-align: center;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 5px; color: var(--text3);
+    font-family: 'DM Mono'; font-size: 10px; cursor: pointer;
+    transition: all 0.12s; white-space: nowrap;
+  }
+  .shp-btn.straight { font-weight: 700; }
+  .shp-btn.active { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+
+  /* ─── WIND GRID ─── */
+  .wind-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 5px; max-width: 220px;
+  }
+  .wbtn {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 5px; color: var(--text3);
+    font-family: 'DM Mono'; font-size: 10px; padding: 7px 4px;
+    cursor: pointer; transition: all 0.12s; text-align: center;
+  }
+  .wbtn.active { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); }
+  .wbtn.center-w { background: var(--surface2); }
+  .wbtn.center-w.active { background: var(--surface3); border-color: var(--text3); color: var(--text2); }
+
+  /* ─── COMMIT STARS ─── */
+  .commit-stars {
+    display: flex; gap: 6px; align-items: center;
+    padding: 4px 0 10px;
+  }
+  .star-btn {
+    font-size: 22px; background: none; border: none;
+    cursor: pointer; color: var(--border2); transition: all 0.1s;
+    padding: 0; line-height: 1;
+  }
+  .star-btn.active { color: var(--yellow); }
+
+  /* ─── LEARN BUTTONS ─── */
+  .learn-btn {
+    flex: 1; padding: 8px 6px; text-align: center;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 5px; color: var(--text3);
+    font-family: 'DM Sans'; font-size: 11px; cursor: pointer;
+    transition: all 0.12s; white-space: nowrap;
+  }
+  .learn-btn.active { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+
+  .section-divider {
+    height: 1px; background: var(--border);
+    margin: 10px 0;
+  }
+
+  /* ─── WIND GRID 8-DIR ─── */
+  .wind-grid8 {
+    display: grid;
+    grid-template-columns: repeat(3, 48px);
+    gap: 4px;
+  }
+  .wbtn8 {
+    width: 48px; height: 40px;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 6px; color: var(--text2);
+    font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.12s;
+  }
+  .wbtn8.active { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); }
+  .wbtn8.center-w.active { background: var(--surface3); border-color: var(--text3); color: var(--text2); }
+
+  /* ─── SHAPE SCROLL ─── */
+  .shape-scroll {
+    display: flex; gap: 5px; overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .shape-scroll::-webkit-scrollbar { display: none; }
+  .shape-scroll .shp-btn {
+    flex-shrink: 0;
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+
+  /* ─── READ BUTTONS (R-- R- R0 R+ R++) ─── */
+  .read-row {
+    display: flex; gap: 5px;
+  }
+  .read-btn {
+    flex: 1; padding: 9px 4px; text-align: center;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 6px; color: var(--text3);
+    font-family: 'DM Mono'; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.12s;
+  }
+  .read-btn[data-val="R0"]  { }
+  .read-btn.active[data-val="R--"] { background:var(--red-dim);    border-color:var(--red);    color:var(--red); }
+  .read-btn.active[data-val="R-"]  { background:rgba(251,191,36,.12); border-color:#fbbf24; color:#fbbf24; }
+  .read-btn.active[data-val="R0"]  { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); }
+  .read-btn.active[data-val="R+"]  { background:rgba(251,191,36,.12); border-color:#fbbf24; color:#fbbf24; }
+  .read-btn.active[data-val="R++"] { background:var(--red-dim);    border-color:var(--red);    color:var(--red); }
+
+  /* ─── PUTT DISTANCE SLIDER ─── */
+  .putt-dist-ctrl {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .putt-slider {
+    flex: 1; -webkit-appearance: none; appearance: none;
+    height: 4px; border-radius: 2px;
+    background: var(--border2);
+    outline: none; cursor: pointer;
+  }
+  .putt-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+    border: 2px solid var(--surface);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .putt-dist-input {
+    width: 58px; text-align: center;
+    background: var(--surface3); border: 1.5px solid var(--border);
+    border-radius: 6px; color: var(--text);
+    font-family: 'DM Mono'; font-size: 18px; font-weight: 600;
+    padding: 7px 4px; outline: none;
+  }
+  .putt-dist-input:focus { border-color: var(--accent); }
+  .putt-dist-unit {
+    font-family: 'DM Mono'; font-size: 11px; color: var(--text3);
+    flex-shrink: 0;
+  }
+
+  /* ─── MADE / MISSED BUTTONS ─── */
+  .outcome-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .outcome-btn {
+    flex: 1; padding: 11px; border-radius: 7px; font-weight: 700;
+    font-family: 'DM Mono'; font-size: 13px; cursor: pointer;
+    border: 1.5px solid var(--border); background: var(--surface);
+    color: var(--text3); transition: all 0.12s;
+  }
+  .outcome-btn.made.active  { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .outcome-btn.missed.active { background: var(--red-dim);   border-color: var(--red);    color: var(--red); }
+
+  /* ─── SMOOTH SCROLL SNAP FOR HOLE NAV ─── */
+  .hole-nav { scroll-snap-type: x mandatory; }
+  .hole-chip { scroll-snap-align: center; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">CADDIE</div>
+  <div class="nav-round-info" id="navRoundInfo" style="display:none">
+    <div class="hole-label">HOLE</div>
+    <div class="hole-num" id="navHoleNum">1</div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════ PAGE: HOME ═══ -->
+<div id="page-home" class="page active">
+  <div class="home-header">
+    <div class="home-title">YOUR<br>ROUNDS</div>
+    <div class="home-subtitle">Track every shot. Find every edge.</div>
+  </div>
+
+  <button class="btn-new-round" onclick="openNewRoundModal()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    NEW ROUND
+  </button>
+
+  <div class="section-label">RECENT ROUNDS</div>
+  <div id="roundsList">
+    <div class="empty-state">
+      <div class="es-icon">⛳</div>
+      <div class="es-title">No rounds yet</div>
+      <div class="es-sub">Start a new round to begin<br>tracking your game</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ PAGE: INPUT ═══ -->
+<div id="page-input" class="page">
+  <!-- Hole Navigation -->
+  <div class="hole-nav" id="holeNav"></div>
+
+  <!-- Hole Header -->
+  <div class="hole-header">
+    <div class="hole-big" id="holeDisplay">HOLE <span id="holeNumDisplay">1</span></div>
+    <div class="hole-par-m">
+      <div class="hole-par" id="holeParDisplay">PAR 4</div>
+      <div class="hole-m" id="holeMDisplay">384 <small>M</small></div>
+    </div>
+  </div>
+
+  <!-- SCORE -->
+  <div class="input-section">
+    <div class="input-section-header" onclick="toggleSection('score')">
+      <div class="ish-left">
+        <div class="ish-icon green">🏌️</div>
+        <div>
+          <div class="ish-title">Score</div>
+          <div class="ish-status" id="scoreStatus">Tap to enter</div>
+        </div>
+      </div>
+      <svg class="ish-chevron open" id="scoreChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="input-section-body open" id="scoreBody">
+      <div class="score-stepper">
+        <button class="step-btn" onclick="changeScore(-1)">−</button>
+        <div class="score-display">
+          <div class="score-big" id="scoreBig">4</div>
+          <div class="score-vs-par par" id="scoreVsPar">PAR</div>
+        </div>
+        <button class="step-btn" onclick="changeScore(1)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEE SHOT -->
+  <div class="input-section">
+    <div class="input-section-header" onclick="toggleSection('tee')">
+      <div class="ish-left">
+        <div class="ish-icon blue">🏹</div>
+        <div>
+          <div class="ish-title">Tee Shot</div>
+          <div class="ish-status" id="teeStatus">Tap to enter</div>
+        </div>
+      </div>
+      <svg class="ish-chevron" id="teeChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="input-section-body" id="teeBody">
+      <!-- PRE-SHOT -->
+      <div class="routine-block" id="teePreBlock">
+        <div class="routine-header" onclick="toggleRoutine('teePre')">
+          <div class="routine-badge pre">PRE</div>
+          <span class="routine-title">Decide &amp; Visualize</span>
+          <svg class="routine-chevron" id="teePreChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="routine-body" id="teePreBody">
+          <!-- Wind -->
+          <div class="routine-sub-label">WIND</div>
+          <div class="field-row" style="margin-bottom:8px">
+            <div class="field">
+              <label>Strength</label>
+              <div class="mini-toggle-group" data-key="teeWindStr">
+                <button class="mtb" data-val="none"   onclick="miniToggle(this)">None</button>
+                <button class="mtb" data-val="weak"   onclick="miniToggle(this)">Weak</button>
+                <button class="mtb" data-val="strong" onclick="miniToggle(this)">Strong</button>
+                <button class="mtb" data-val="gusty"  onclick="miniToggle(this)">Gusty</button>
+              </div>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom:12px">
+            <div class="field">
+              <label>Direction</label>
+              <div class="wind-grid8" data-key="teeWindDir">
+                <button class="wbtn8" data-val="dl"   onclick="windToggle8(this)">↙</button>
+                <button class="wbtn8" data-val="down" onclick="windToggle8(this)">↓</button>
+                <button class="wbtn8" data-val="dr"   onclick="windToggle8(this)">↘</button>
+                <button class="wbtn8" data-val="left" onclick="windToggle8(this)">←</button>
+                <button class="wbtn8 center-w" data-val="calm" onclick="windToggle8(this)">⊙</button>
+                <button class="wbtn8" data-val="right" onclick="windToggle8(this)">→</button>
+                <button class="wbtn8" data-val="ul"   onclick="windToggle8(this)">↖</button>
+                <button class="wbtn8" data-val="into" onclick="windToggle8(this)">↑</button>
+                <button class="wbtn8" data-val="ur"   onclick="windToggle8(this)">↗</button>
+              </div>
+              <div style="display:flex;justify-content:space-between;max-width:152px;margin-top:3px;font-family:'DM Mono';font-size:9px;color:var(--text3);">
+                <span>Down ↙↓↘</span><span>Into ↖↑↗</span>
+              </div>
+            </div>
+          </div>
+          <!-- Club + Distance -->
+          <div class="routine-sub-label">CLUB &amp; DISTANCE</div>
+          <div class="field-row" style="margin-bottom:12px">
+            <div class="field">
+              <label>Club</label>
+              <select id="teeClub" style="width:100%;background:var(--surface3);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:'DM Mono';font-size:15px;padding:9px 10px;outline:none;-webkit-appearance:none;">
+                <option value="">—</option>
+                <option>DR</option><option>3W</option><option>5W</option>
+                <option>3H</option><option>4H</option><option>3I</option>
+                <option>4I</option><option>5I</option>
+              </select>
+            </div>
+            <div class="field" style="max-width:100px">
+              <label>Target (m)</label>
+              <input type="number" id="teeCarry" placeholder="260" style="width:100%;background:var(--surface3);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:'DM Mono';font-size:16px;padding:9px 10px;outline:none;text-align:center;">
+            </div>
+          </div>
+          <!-- Target shape -->
+          <div class="routine-sub-label">TARGET SHOT</div>
+          <div class="field-row" style="margin-bottom:8px">
+            <div class="field">
+              <label>Trajectory</label>
+              <div class="mini-toggle-group" data-key="teeTargetTraj">
+                <button class="mtb" data-val="low"  onclick="miniToggle(this)">Low</button>
+                <button class="mtb" data-val="mid"  onclick="miniToggle(this)">Mid</button>
+                <button class="mtb" data-val="high" onclick="miniToggle(this)">High</button>
+              </div>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom:2px">
+            <div class="field">
+              <label>Shape</label>
+              <div class="shape-scroll" data-key="teeTargetShape">
+                <button class="shp-btn" data-val="duck-hook" onclick="shapeToggle(this)">Duck Hook</button>
+                <button class="shp-btn" data-val="hook"      onclick="shapeToggle(this)">Hook</button>
+                <button class="shp-btn" data-val="pull"      onclick="shapeToggle(this)">Pull</button>
+                <button class="shp-btn" data-val="draw"      onclick="shapeToggle(this)">Draw</button>
+                <button class="shp-btn straight" data-val="straight" onclick="shapeToggle(this)">Straight</button>
+                <button class="shp-btn" data-val="fade"      onclick="shapeToggle(this)">Fade</button>
+                <button class="shp-btn" data-val="push"      onclick="shapeToggle(this)">Push</button>
+                <button class="shp-btn" data-val="slice"     onclick="shapeToggle(this)">Slice</button>
+                <button class="shp-btn" data-val="shank"     onclick="shapeToggle(this)">Shank</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- POST-SHOT -->
+      <div class="routine-block" id="teePostBlock" style="margin-top:6px">
+        <div class="routine-header" onclick="toggleRoutine('teePost')">
+          <div class="routine-badge post">POST</div>
+          <span class="routine-title">Result &amp; Learn</span>
+          <svg class="routine-chevron" id="teePostChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="routine-body" id="teePostBody">
+          <!-- Landing -->
+          <div class="routine-sub-label">LANDING</div>
+          <div class="field-row" style="margin-bottom:8px">
+            <div class="field">
+              <div class="mini-toggle-group" data-key="teeLanding">
+                <button class="mtb" data-val="FW" onclick="miniToggle(this)">Fairway</button>
+                <button class="mtb" data-val="RO" onclick="miniToggle(this)">Rough</button>
+                <button class="mtb" data-val="BK" onclick="miniToggle(this)">Bunker</button>
+                <button class="mtb" data-val="OB" onclick="miniToggle(this)">OB/Pen</button>
+              </div>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom:12px">
+            <div class="field" style="max-width:110px">
+              <label>Actual Carry (m)</label>
+              <input type="number" id="teeActualCarry" placeholder="255" style="width:100%;background:var(--surface3);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:'DM Mono';font-size:16px;padding:9px 10px;outline:none;text-align:center;">
+            </div>
+          </div>
+          <!-- Actual shape -->
+          <div class="routine-sub-label">ACTUAL SHOT</div>
+          <div class="field-row" style="margin-bottom:8px">
+            <div class="field">
+              <label>Trajectory</label>
+              <div class="mini-toggle-group" data-key="teeResultTraj">
+                <button class="mtb" data-val="low"  onclick="miniToggle(this)">Low</button>
+                <button class="mtb" data-val="mid"  onclick="miniToggle(this)">Mid</button>
+                <button class="mtb" data-val="high" onclick="miniToggle(this)">High</button>
+              </div>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom:12px">
+            <div class="field">
+              <label>Shape</label>
+              <div class="shape-scroll" data-key="teeResultShape">
+                <button class="shp-btn" data-val="duck-hook" onclick="shapeToggle(this)">Duck Hook</button>
+                <button class="shp-btn" data-val="hook"      onclick="shapeToggle(this)">Hook</button>
+                <button class="shp-btn" data-val="pull"      onclick="shapeToggle(this)">Pull</button>
+                <button class="shp-btn" data-val="draw"      onclick="shapeToggle(this)">Draw</button>
+                <button class="shp-btn straight" data-val="straight" onclick="shapeToggle(this)">Straight</button>
+                <button class="shp-btn" data-val="fade"      onclick="shapeToggle(this)">Fade</button>
+                <button class="shp-btn" data-val="push"      onclick="shapeToggle(this)">Push</button>
+                <button class="shp-btn" data-val="slice"     onclick="shapeToggle(this)">Slice</button>
+                <button class="shp-btn" data-val="shank"     onclick="shapeToggle(this)">Shank</button>
+              </div>
+            </div>
+          </div>
+          <!-- Feel + Commit -->
+          <div class="routine-sub-label">FEEL (Impact)</div>
+          <div class="mini-toggle-group" data-key="teeFeel" style="margin-bottom:12px">
+            <button class="mtb" data-val="flushed" onclick="miniToggle(this)">Flushed</button>
+            <button class="mtb" data-val="toe"     onclick="miniToggle(this)">Toe</button>
+            <button class="mtb" data-val="heel"    onclick="miniToggle(this)">Heel</button>
+            <button class="mtb" data-val="high"    onclick="miniToggle(this)">High</button>
+            <button class="mtb" data-val="low"     onclick="miniToggle(this)">Low</button>
+          </div>
+          <div class="routine-sub-label">COMMIT LEVEL</div>
+          <div class="commit-stars" id="teeCommitStars" style="margin-bottom:12px">
+            <button class="star-btn" data-val="1" onclick="starToggle(this,'teeCommitStars')">●</button>
+            <button class="star-btn" data-val="2" onclick="starToggle(this,'teeCommitStars')">●</button>
+            <button class="star-btn" data-val="3" onclick="starToggle(this,'teeCommitStars')">●</button>
+            <button class="star-btn" data-val="4" onclick="starToggle(this,'teeCommitStars')">●</button>
+            <button class="star-btn" data-val="5" onclick="starToggle(this,'teeCommitStars')">●</button>
+          </div>
+          <!-- Learn -->
+          <div class="routine-sub-label">LEARN / NOTE</div>
+          <div style="display:flex;gap:6px;margin-bottom:8px;">
+            <button class="learn-btn" data-val="positive" onclick="learnToggle(this)">💪 Confidence</button>
+            <button class="learn-btn" data-val="lesson"   onclick="learnToggle(this)">📖 Lesson</button>
+            <button class="learn-btn" data-val="neutral"  onclick="learnToggle(this)">📌 Note</button>
+          </div>
+          <textarea id="teeLearnNote" rows="2" placeholder="What happened? What did you learn?" style="width:100%;background:var(--surface3);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:'DM Sans';font-size:13px;padding:9px 10px;outline:none;resize:none;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GROUND SHOT -->
+  <div class="input-section">
+    <div class="input-section-header" onclick="toggleSection('stg')">
+      <div class="ish-left">
+        <div class="ish-icon yellow">⛳</div>
+        <div>
+          <div class="ish-title">Ground Shot</div>
+          <div class="ish-status" id="stgStatus">Tap to enter</div>
+        </div>
+      </div>
+      <svg class="ish-chevron" id="stgChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="input-section-body" id="stgBody">
+      <!-- intent legend -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;">
+        <div style="background:var(--yellow-dim);border:1px solid var(--yellow);border-radius:6px;padding:7px 10px;text-align:center;">
+          <div style="font-family:'DM Mono';font-size:10px;color:var(--yellow);text-transform:uppercase;letter-spacing:0.8px;">Approach</div>
+          <div style="font-family:'DM Mono';font-size:10px;color:var(--text3);margin-top:2px;">그린 공략 ≥50m</div>
+        </div>
+        <div style="background:var(--red-dim);border:1px solid var(--red);border-radius:6px;padding:7px 10px;text-align:center;">
+          <div style="font-family:'DM Mono';font-size:10px;color:var(--red);text-transform:uppercase;letter-spacing:0.8px;">ARG</div>
+          <div style="font-family:'DM Mono';font-size:10px;color:var(--text3);margin-top:2px;">그린 공략 &lt;50y</div>
+        </div>
+        <div style="background:var(--blue-dim);border:1px solid var(--blue);border-radius:6px;padding:7px 10px;text-align:center;">
+          <div style="font-family:'DM Mono';font-size:10px;color:var(--blue);text-transform:uppercase;letter-spacing:0.8px;">Layup</div>
+          <div style="font-family:'DM Mono';font-size:10px;color:var(--text3);margin-top:2px;">전략적 숏</div>
+        </div>
+        <div style="background:rgba(167,139,250,0.12);border:1px solid var(--purple);border-radius:6px;padding:7px 10px;text-align:center;">
+          <div style="font-family:'DM Mono';font-size:10px;color:var(--purple);text-transform:uppercase;letter-spacing:0.8px;">Recovery</div>
+          <div style="font-family:'DM Mono';font-size:10px;color:var(--text3);margin-top:2px;">탈출 샷</div>
+        </div>
+      </div>
+      <div id="stgShots"></div>
+      <button onclick="addStgShot()" style="width:100%;background:none;border:1.5px dashed var(--border);border-radius:var(--r-sm);padding:10px;color:var(--text3);font-family:'DM Sans';font-size:13px;cursor:pointer;margin-top:4px;">
+        + Add Shot
+      </button>
+    </div>
+  </div>
+
+  <!-- PUTTING -->
+  <div class="input-section">
+    <div class="input-section-header" onclick="toggleSection('putt')">
+      <div class="ish-left">
+        <div class="ish-icon green">⚪</div>
+        <div>
+          <div class="ish-title">Putting</div>
+          <div class="ish-status" id="puttStatus">Tap to enter</div>
+        </div>
+      </div>
+      <svg class="ish-chevron" id="puttChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="input-section-body" id="puttBody">
+      <div id="puttCards"></div>
+      <button onclick="addPuttCard()" style="width:100%;background:none;border:1.5px dashed var(--border);border-radius:var(--r-sm);padding:10px;color:var(--text3);font-family:'DM Sans';font-size:13px;cursor:pointer;margin-top:4px;">
+        + Add Putt
+      </button>
+    </div>
+  </div>
+
+  <!-- NOTES -->
+  <div class="input-section" style="margin-bottom:0">
+    <div class="input-section-header" onclick="toggleSection('notes')">
+      <div class="ish-left">
+        <div class="ish-icon" style="background:rgba(167,139,250,0.12);">📝</div>
+        <div>
+          <div class="ish-title">Notes</div>
+          <div class="ish-status" id="notesStatus">Optional</div>
+        </div>
+      </div>
+      <svg class="ish-chevron" id="notesChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="input-section-body" id="notesBody">
+      <textarea id="holeNotes" rows="3" style="width:100%;background:var(--surface3);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:'DM Sans';font-size:14px;padding:10px 12px;outline:none;resize:none;transition:border-color 0.15s;" placeholder="Wind, pin location, club notes..." onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+    </div>
+  </div>
+
+  <button class="btn-save-hole" onclick="saveHole()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    SAVE HOLE
+  </button>
+</div>
+
+<!-- ═══════════════════════════════════════ PAGE: STATS ═══ -->
+<div id="page-stats" class="page">
+  <div class="stats-header">
+    <div class="stats-title">ANALYSIS</div>
+    <div class="stats-round-sel">
+      <select id="statsRoundSel" onchange="renderStats()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:'DM Mono';font-size:13px;padding:8px 12px;outline:none;width:100%;-webkit-appearance:none;">
+        <option value="">Select a round</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="statsContent">
+    <div class="empty-state">
+      <div class="es-icon">📊</div>
+      <div class="es-title">Select a round</div>
+      <div class="es-sub">Complete holes to see analysis</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ PAGE: SCORECARD ═══ -->
+<div id="page-card" class="page">
+  <div class="stats-header">
+    <div class="stats-title">SCORECARD</div>
+    <select id="cardRoundSel" onchange="renderScorecard()" style="margin-top:10px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:'DM Mono';font-size:13px;padding:8px 12px;outline:none;width:100%;-webkit-appearance:none;">
+      <option value="">Select a round</option>
+    </select>
+  </div>
+  <div id="scorecardContent">
+    <div class="empty-state">
+      <div class="es-icon">📋</div>
+      <div class="es-title">No scorecard</div>
+      <div class="es-sub">Complete a round to view your scorecard</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ MODAL: NEW ROUND ═══ -->
+<div class="modal-overlay" id="newRoundModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">NEW ROUND</div>
+    <div class="modal-field">
+      <label>Course Name</label>
+      <input type="text" id="courseName" placeholder="e.g. Pebble Beach">
+    </div>
+    <div class="modal-row">
+      <div class="modal-field">
+        <label>Date</label>
+        <input type="date" id="roundDate">
+      </div>
+      <div class="modal-field">
+        <label>Holes</label>
+        <select id="roundHoles">
+          <option value="18">18 Holes</option>
+          <option value="9">9 Holes</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Tee</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" onclick="toggleActive(this,'teeColor','BK')" data-val="BK">Black</button>
+        <button class="toggle-btn" onclick="toggleActive(this,'teeColor','BL')" data-val="BL">Blue</button>
+        <button class="toggle-btn" onclick="toggleActive(this,'teeColor','WH')" data-val="WH">White</button>
+        <button class="toggle-btn" onclick="toggleActive(this,'teeColor','RD')" data-val="RD">Red</button>
+      </div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field">
+        <label>Your Handicap</label>
+        <input type="number" id="playerHcp" placeholder="0.0" step="0.1">
+      </div>
+      <div class="modal-field">
+        <label>Course Rating</label>
+        <input type="number" id="courseRating" placeholder="72.0" step="0.1">
+      </div>
+    </div>
+    <button class="btn-start-round" onclick="startRound()">START ROUND →</button>
+  </div>
+</div>
+
+<!-- BOTTOM TAB BAR -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-home" onclick="showPage('home')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="tab-btn" id="tab-input" onclick="showPage('input')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    <span>Input</span>
+  </button>
+  <button class="tab-btn" id="tab-stats" onclick="showPage('stats')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    <span>Analysis</span>
+  </button>
+  <button class="tab-btn" id="tab-card" onclick="showPage('card')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="13" y2="15"/></svg>
+    <span>Card</span>
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DATA STORE
+// ═══════════════════════════════════════════════════════
+let state = {
+  rounds: [],
+  activeRoundId: null,
+  activeHole: 1,
+  holeData: {}  // holeData[roundId][holeNum] = {...}
+};
+
+// Default par/distance for 18 holes
+const DEFAULT_COURSE = {
+  pars: [4,4,3,5,4,3,5,4,4, 4,3,5,4,4,3,5,4,4],
+  m:  [384,347,169,475,375,151,466,361,393, 370,174,485,343,384,142,448,379,402]
+};
+
+// Load from storage
+async function loadState() {
+  try {
+    const r = await window.storage.get('caddie-state');
+    if (r) state = JSON.parse(r.value);
+  } catch(e) {}
+  renderAll();
+}
+
+async function saveState() {
+  try {
+    await window.storage.set('caddie-state', JSON.stringify(state));
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+
+  if (name === 'stats') { populateRoundSelects(); renderStats(); }
+  if (name === 'card') { populateRoundSelects(); renderScorecard(); }
+  if (name === 'input' && !state.activeRoundId) {
+    showToast('Start a round first!');
+    showPage('home');
+  }
+  if (name === 'input') {
+    document.getElementById('navRoundInfo').style.display = 'block';
+    document.getElementById('navHoleNum').textContent = state.activeHole;
+  } else {
+    document.getElementById('navRoundInfo').style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// NEW ROUND
+// ═══════════════════════════════════════════════════════
+function openNewRoundModal() {
+  document.getElementById('roundDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('newRoundModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('newRoundModal').classList.remove('open');
+}
+
+document.getElementById('newRoundModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+function startRound() {
+  const course = document.getElementById('courseName').value.trim() || 'Unknown Course';
+  const date = document.getElementById('roundDate').value;
+  const holes = parseInt(document.getElementById('roundHoles').value);
+
+  const id = Date.now().toString();
+  const round = {
+    id, course, date, holes,
+    tee: getActiveVal('teeColor') || 'Blue',
+    hcp: parseFloat(document.getElementById('playerHcp').value) || 0,
+    rating: parseFloat(document.getElementById('courseRating').value) || 72,
+    createdAt: new Date().toISOString()
+  };
+
+  state.rounds.unshift(round);
+  state.activeRoundId = id;
+  state.activeHole = 1;
+  if (!state.holeData[id]) state.holeData[id] = {};
+
+  saveState();
+  closeModal();
+  buildHoleNav();
+  loadHole(1);
+  showPage('input');
+  renderHome();
+  showToast(`${course} — Let's go!`);
+}
+
+// ═══════════════════════════════════════════════════════
+// HOLE NAVIGATION & LOAD
+// ═══════════════════════════════════════════════════════
+function buildHoleNav() {
+  const round = getActiveRound();
+  if (!round) return;
+  const nav = document.getElementById('holeNav');
+  nav.innerHTML = '';
+  for (let i = 1; i <= round.holes; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'hole-chip' + (i === state.activeHole ? ' active' : '');
+    btn.textContent = i;
+    btn.onclick = () => gotoHole(i);
+    const hd = (state.holeData[round.id] || {})[i];
+    if (hd) {
+      btn.classList.add('completed');
+      const vp = hd.score - DEFAULT_COURSE.pars[i-1];
+      if (vp < 0) btn.classList.add('under-par');
+      else if (vp > 0) btn.classList.add('over-par');
+      else btn.classList.add('even-par');
+    }
+    nav.appendChild(btn);
+  }
+}
+
+function gotoHole(n) {
+  state.activeHole = n;
+  buildHoleNav();
+  loadHole(n);
+  document.getElementById('navHoleNum').textContent = n;
+  // scroll chip into view
+  const chips = document.querySelectorAll('.hole-chip');
+  chips[n-1]?.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+}
+
+function loadHole(n) {
+  const par = DEFAULT_COURSE.pars[n-1] || 4;
+  const m = DEFAULT_COURSE.m[n-1] || 370;
+
+  document.getElementById('holeNumDisplay').textContent = n;
+  document.getElementById('holeParDisplay').textContent = 'PAR ' + par;
+  document.getElementById('holeMDisplay').innerHTML = m + ' <small>M</small>';
+
+  // Reset all fields
+  setScoreDisplay(par, par);
+  document.getElementById('teeClub').value = '';
+  document.getElementById('teeCarry').value = '';
+  document.getElementById('stgShots').innerHTML = '';
+  stgShotCount = 0;
+  updateStgStatus();
+  document.getElementById('holeNotes').value = '';
+  resetPuttCards();
+  updateStatuses();
+
+  // Load existing data if any
+  const hd = (state.holeData[state.activeRoundId] || {})[n];
+  if (hd) fillHoleForm(hd, par);
+  else { setScoreDisplay(par, par); }
+}
+
+function fillHoleForm(hd, par) {
+  setScoreDisplay(hd.score, par);
+  if (hd.teeClub) document.getElementById('teeClub').value = hd.teeClub;
+  if (hd.teeCarry) document.getElementById('teeCarry').value = hd.teeCarry;
+  if (hd.teeResult) setToggleActive('teeResult', hd.teeResult);
+  if (hd.teeMiss) setToggleActive('teeMiss', hd.teeMiss);
+  // Restore stg shots
+  if (hd.stgShots?.length) {
+    hd.stgShots.forEach(s => {
+      stgShotCount++;
+      const id = 'stg-' + stgShotCount;
+      const wrap = document.createElement('div');
+      wrap.id = id;
+      const intent = s.intent || s.category || 'approach'; // backwards compat
+      wrap.dataset.intent = intent;
+      wrap.style.cssText = 'background:var(--surface3);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;position:relative;border:1.5px solid var(--border);transition:border-color 0.25s;';
+      wrap.innerHTML = buildStgShotHTML(id, stgShotCount, intent, s.dist || '');
+      document.getElementById('stgShots').appendChild(wrap);
+      if (s.club) { const el = document.getElementById(id+'-club'); if(el) el.value = s.club; }
+      if (s.result) {
+        wrap.querySelectorAll('[data-stg-result]').forEach(b => {
+          if (b.getAttribute('data-stg-result') === s.result) stgToggle(b);
+        });
+      }
+      if (s.shotType) {
+        wrap.querySelectorAll('[data-stg-type]').forEach(b => {
+          if (b.getAttribute('data-stg-type') === s.shotType) stgToggle(b);
+        });
+      }
+    });
+    updateStgStatus();
+  }
+  if (hd.notes) document.getElementById('holeNotes').value = hd.notes;
+  // Restore putt cards
+  if (hd.puttCards?.length) {
+    hd.puttCards.forEach(pc => {
+      addPuttCard();
+      const id = 'putt-' + puttCardCount;
+      if (pc.dist) {
+        const slider = document.getElementById(id+'-slider');
+        const input  = document.getElementById(id+'-dist-input');
+        if (slider) slider.value = Math.min(10, Math.max(1, parseFloat(pc.dist)||8));
+        if (input)  input.value  = pc.dist;
+      }
+      const wrap = document.getElementById(id);
+      if (!wrap) return;
+      const activate = (key, val) => { wrap.querySelector(`[data-key="${key}"] .mtb[data-val="${val}"]`)?.classList.add('active'); };
+      if (pc.slope)    activate(id+'-slope', pc.slope);
+      if (pc.break)    activate(id+'-break', pc.break);
+      if (pc.preSpeed) activate(id+'-pre-speed', pc.preSpeed);
+      if (pc.outcome) {
+        wrap.querySelector(`.outcome-btn[data-val="${pc.outcome}"]`)?.classList.add('active');
+      }
+      if (pc.postSpeed) activate(id+'-post-speed', pc.postSpeed);
+      if (pc.startLine) activate(id+'-start-line', pc.startLine);
+      if (pc.read) { wrap.querySelector(`.read-btn[data-val="${pc.read}"]`)?.classList.add('active'); }
+      if (pc.feel) activate(id+'-feel', pc.feel);
+      if (pc.note) { const n = document.getElementById(id+'-note'); if(n) n.value = pc.note; }
+    });
+    updatePuttStatus();
+  } else if (hd.putts?.length) {
+    // Legacy: restore from old putts array
+    hd.putts.forEach(p => {
+      addPuttCard();
+      const id = 'putt-' + puttCardCount;
+      const slider = document.getElementById(id+'-slider');
+      const input  = document.getElementById(id+'-dist-input');
+      const dist = p.dist || 8;
+      if (slider) slider.value = Math.min(10, Math.max(1, parseFloat(dist)));
+      if (input)  input.value  = dist;
+      if (p.result) {
+        document.getElementById(id)?.querySelector(`.outcome-btn[data-val="${p.result}"]`)?.classList.add('active');
+      }
+    });
+    updatePuttStatus();
+  }
+  updateStatuses();
+}
+
+// ═══════════════════════════════════════════════════════
+// SCORE
+// ═══════════════════════════════════════════════════════
+let currentScore = 4;
+function changeScore(delta) {
+  const par = DEFAULT_COURSE.pars[state.activeHole - 1] || 4;
+  currentScore = Math.max(1, Math.min(12, currentScore + delta));
+  setScoreDisplay(currentScore, par);
+}
+
+function setScoreDisplay(score, par) {
+  currentScore = score;
+  const vp = score - par;
+  const el = document.getElementById('scoreBig');
+  const vEl = document.getElementById('scoreVsPar');
+  el.textContent = score;
+  const labels = ['eagle','birdie','par','bogey','double'];
+  vEl.className = 'score-vs-par';
+  if (vp <= -2) { vEl.textContent = 'EAGLE'; vEl.classList.add('eagle'); }
+  else if (vp === -1) { vEl.textContent = 'BIRDIE'; vEl.classList.add('birdie'); }
+  else if (vp === 0) { vEl.textContent = 'PAR'; vEl.classList.add('par'); }
+  else if (vp === 1) { vEl.textContent = 'BOGEY'; vEl.classList.add('bogey'); }
+  else { vEl.textContent = '+' + vp; vEl.classList.add('double'); }
+  document.getElementById('scoreStatus').textContent = score + ' (' + (vp === 0 ? 'E' : vp > 0 ? '+'+vp : vp) + ')';
+}
+
+// ═══════════════════════════════════════════════════════
+// GROUND SHOT — Layup / Recovery / Approach / ARG
+// Approach/ARG: 거리 입력 시 자동 분류 (≥50m = APP, <50m = ARG)
+// ═══════════════════════════════════════════════════════
+const GS_META = {
+  approach: { label:'APPROACH', color:'var(--yellow)',            bg:'var(--yellow-dim)',          placeholder:'137', distLabel:'Dist to Pin (m)' },
+  arg:      { label:'ARG',      color:'var(--red)',               bg:'var(--red-dim)',             placeholder:'25',  distLabel:'Dist to Pin (m)' },
+  layup:    { label:'LAYUP',    color:'var(--blue)',              bg:'var(--blue-dim)',            placeholder:'200', distLabel:'Carry Target (m)' },
+  recovery: { label:'RECOVERY', color:'var(--purple)',            bg:'rgba(167,139,250,0.12)',     placeholder:'73',  distLabel:'Distance (m)' }
+};
+const GS_CLUBS = {
+  approach: ['LW','SW','GW','AW','PW','9I','8I','7I','6I','5I','4I','3I','4H','3H','5W','3W','DR'],
+  arg:      ['LW','SW','GW','AW','PW','9I','8I','7I','PT'],
+  layup:    ['SW','AW','PW','9I','8I','7I','6I','5I','4I','3I','4H','3H','5W','3W'],
+  recovery: ['LW','SW','PW','9I','8I','7I','6I','5I','3I','4H','3H','5W','3W']
+};
+const GS_RESULTS = {
+  approach: ['GIR','Rough','Bunker','Short','Long','Left','Right'],
+  arg:      ['Close (<2m)','Mid (2-5m)','Long (5m+)','Over','Short','Left','Right'],
+  layup:    ['Fairway','Rough','Bunker','Perfect Spot'],
+  recovery: ['Fairway','Rough','Playable','Still Trouble']
+};
+const GS_ARG_TYPES = ['Chip','Pitch','Bunker','Lob','Bump & Run'];
+
+let stgShotCount = 0;
+
+function addStgShot() {
+  stgShotCount++;
+  const id = 'stg-' + stgShotCount;
+  const wrap = document.createElement('div');
+  wrap.id = id;
+  wrap.dataset.intent = '';
+  wrap.style.cssText = 'background:var(--surface3);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;position:relative;border:1.5px solid var(--border);transition:border-color 0.25s;';
+  wrap.innerHTML = buildStgShotHTML(id, stgShotCount, '', '');
+  document.getElementById('stgShots').appendChild(wrap);
+  updateStgStatus();
+}
+
+function buildStgShotHTML(id, num, intent, distVal) {
+  const intents = ['approach','arg','layup','recovery'];
+  const meta = GS_META[intent] || null;
+  const clubs   = intent ? GS_CLUBS[intent]   : [];
+  const results = intent ? GS_RESULTS[intent] : [];
+
+  // 4개 intent 선택 버튼
+  const intentBtns = intents.map(i => {
+    const m = GS_META[i];
+    const active = intent === i;
+    return `<button onclick="setStgIntent('${id}','${i}')"
+      style="flex:1;min-width:0;
+      background:${active ? m.bg : 'var(--surface)'};
+      border:1.5px solid ${active ? m.color : 'var(--border)'};
+      border-radius:5px;
+      color:${active ? m.color : 'var(--text3)'};
+      font-family:'DM Mono';font-size:10px;padding:7px 2px;
+      cursor:pointer;text-transform:uppercase;letter-spacing:0.3px;
+      transition:all 0.15s;">${m.label}</button>`;
+  }).join('');
+
+  // 디테일 — intent 선택 후에만 표시
+  const detailHTML = intent ? `
+    <div id="${id}-detail">
+      <!-- PRE-SHOT -->
+      <div class="routine-block" style="margin-bottom:6px">
+        <div class="routine-header" onclick="toggleRoutine('${id}Pre')">
+          <div class="routine-badge pre">PRE</div>
+          <span class="routine-title">Decide &amp; Visualize</span>
+          <svg class="routine-chevron" id="${id}PreChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="routine-body" id="${id}PreBody">
+
+          <div class="routine-sub-label">WIND</div>
+          <div class="mini-toggle-group" data-key="${id}-wind-str" style="margin-bottom:8px;">
+            <button class="mtb" data-val="none"   onclick="miniToggle(this)">None</button>
+            <button class="mtb" data-val="weak"   onclick="miniToggle(this)">Weak</button>
+            <button class="mtb" data-val="strong" onclick="miniToggle(this)">Strong</button>
+            <button class="mtb" data-val="gusty"  onclick="miniToggle(this)">Gusty</button>
+          </div>
+          <div class="wind-grid8" data-key="${id}-wind-dir" style="margin-bottom:3px;">
+            <button class="wbtn8" data-val="dl"    onclick="windToggle8(this)">↙</button>
+            <button class="wbtn8" data-val="down"  onclick="windToggle8(this)">↓</button>
+            <button class="wbtn8" data-val="dr"    onclick="windToggle8(this)">↘</button>
+            <button class="wbtn8" data-val="left"  onclick="windToggle8(this)">←</button>
+            <button class="wbtn8 center-w" data-val="calm" onclick="windToggle8(this)">⊙</button>
+            <button class="wbtn8" data-val="right" onclick="windToggle8(this)">→</button>
+            <button class="wbtn8" data-val="ul"    onclick="windToggle8(this)">↖</button>
+            <button class="wbtn8" data-val="into"  onclick="windToggle8(this)">↑</button>
+            <button class="wbtn8" data-val="ur"    onclick="windToggle8(this)">↗</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;max-width:152px;margin-bottom:12px;font-family:'DM Mono';font-size:9px;color:var(--text3);">
+            <span>Down ↙↓↘</span><span>Into ↖↑↗</span>
+          </div>
+
+          <div class="routine-sub-label">LIE</div>
+          <div class="mini-toggle-group" data-key="${id}-lie-quality" style="margin-bottom:6px;">
+            <button class="mtb" data-val="clean"  onclick="miniToggle(this)">Clean</button>
+            <button class="mtb" data-val="rough"  onclick="miniToggle(this)">Rough</button>
+            <button class="mtb" data-val="sand"   onclick="miniToggle(this)">Sand</button>
+            <button class="mtb" data-val="divot"  onclick="miniToggle(this)">Divot</button>
+            <button class="mtb" data-val="bad"    onclick="miniToggle(this)">Bad</button>
+          </div>
+          <div class="mini-toggle-group" data-key="${id}-lie-ball" style="margin-bottom:6px;">
+            <button class="mtb" data-val="up"     onclick="miniToggle(this)">떠있음 ↑</button>
+            <button class="mtb" data-val="buried" onclick="miniToggle(this)">묻혀있음 ↓</button>
+          </div>
+          <div class="mini-toggle-group" data-key="${id}-lie-slope" style="margin-bottom:6px;">
+            <button class="mtb" data-val="uphill"  onclick="miniToggle(this)">오르막 ⬆</button>
+            <button class="mtb" data-val="downhill" onclick="miniToggle(this)">내리막 ⬇</button>
+            <button class="mtb" data-val="toe-up"  onclick="miniToggle(this)">발끝 위 ↗</button>
+            <button class="mtb" data-val="toe-dn"  onclick="miniToggle(this)">발끝 아래 ↘</button>
+          </div>
+          <div class="mini-toggle-group" data-key="${id}-lie-stance" style="margin-bottom:12px;">
+            <button class="mtb" data-val="stable"   onclick="miniToggle(this)">스탠스 안정</button>
+            <button class="mtb" data-val="unstable" onclick="miniToggle(this)">스탠스 불안정</button>
+          </div>
+
+          <div class="routine-sub-label">CLUB &amp; DISTANCE</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div style="flex:1.2">
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;font-family:'DM Mono';">Club</div>
+              <select id="${id}-club" style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono';font-size:14px;padding:8px;outline:none;-webkit-appearance:none;">
+                <option value="">—</option>
+                ${clubs.map(c => `<option value="${c}">${c}</option>`).join('')}
+              </select>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;font-family:'DM Mono';">
+                ${meta.distLabel}
+                ${(intent==='approach'||intent==='arg') ? '<span style="color:var(--accent);font-size:9px;margin-left:3px;">AUTO</span>' : ''}
+              </div>
+              <input id="${id}-dist" type="number" placeholder="${meta.placeholder}" value="${distVal}"
+                oninput="onStgDistChange('${id}',this.value)"
+                style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono';font-size:16px;padding:8px;outline:none;text-align:center;">
+            </div>
+          </div>
+
+          ${intent === 'arg' ? `
+          <div class="routine-sub-label">SHOT TYPE</div>
+          <div class="mini-toggle-group" data-key="${id}-arg-type" style="margin-bottom:10px;">
+            ${GS_ARG_TYPES.map(t => `<button class="mtb" data-val="${t}" onclick="miniToggle(this)">${t}</button>`).join('')}
+          </div>` : ''}
+
+          <div class="routine-sub-label">TARGET TRAJECTORY</div>
+          <div class="mini-toggle-group" data-key="${id}-tgt-traj" style="margin-bottom:8px;">
+            <button class="mtb" data-val="low"  onclick="miniToggle(this)">Low</button>
+            <button class="mtb" data-val="mid"  onclick="miniToggle(this)">Mid</button>
+            <button class="mtb" data-val="high" onclick="miniToggle(this)">High</button>
+          </div>
+
+          <div class="routine-sub-label">TARGET SHAPE</div>
+          <div class="shape-scroll" data-key="${id}-tgt-shape" style="margin-bottom:2px;">
+            <button class="shp-btn" data-val="duck-hook" onclick="shapeToggle(this)">Duck Hook</button>
+            <button class="shp-btn" data-val="hook"      onclick="shapeToggle(this)">Hook</button>
+            <button class="shp-btn" data-val="pull"      onclick="shapeToggle(this)">Pull</button>
+            <button class="shp-btn" data-val="draw"      onclick="shapeToggle(this)">Draw</button>
+            <button class="shp-btn straight" data-val="straight" onclick="shapeToggle(this)">Straight</button>
+            <button class="shp-btn" data-val="fade"      onclick="shapeToggle(this)">Fade</button>
+            <button class="shp-btn" data-val="push"      onclick="shapeToggle(this)">Push</button>
+            <button class="shp-btn" data-val="slice"     onclick="shapeToggle(this)">Slice</button>
+            <button class="shp-btn" data-val="shank"     onclick="shapeToggle(this)">Shank</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- POST-SHOT -->
+      <div class="routine-block">
+        <div class="routine-header" onclick="toggleRoutine('${id}Post')">
+          <div class="routine-badge post">POST</div>
+          <span class="routine-title">Result &amp; Learn</span>
+          <svg class="routine-chevron" id="${id}PostChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="routine-body" id="${id}PostBody">
+
+          <div class="routine-sub-label">RESULT</div>
+          <div class="mini-toggle-group" data-key="${id}-result" style="margin-bottom:10px;flex-wrap:wrap;">
+            ${results.map(r => `<button class="mtb" data-val="${r}" onclick="miniToggle(this)">${r}</button>`).join('')}
+          </div>
+
+          ${(intent === 'approach' || intent === 'arg') ? `
+          <div class="routine-sub-label">ACTUAL TRAJECTORY</div>
+          <div class="mini-toggle-group" data-key="${id}-res-traj" style="margin-bottom:8px;">
+            <button class="mtb" data-val="low"  onclick="miniToggle(this)">Low</button>
+            <button class="mtb" data-val="mid"  onclick="miniToggle(this)">Mid</button>
+            <button class="mtb" data-val="high" onclick="miniToggle(this)">High</button>
+          </div>
+          <div class="routine-sub-label">ACTUAL SHAPE</div>
+          <div class="shape-scroll" data-key="${id}-res-shape" style="margin-bottom:10px;">
+            <button class="shp-btn" data-val="duck-hook" onclick="shapeToggle(this)">Duck Hook</button>
+            <button class="shp-btn" data-val="hook"      onclick="shapeToggle(this)">Hook</button>
+            <button class="shp-btn" data-val="pull"      onclick="shapeToggle(this)">Pull</button>
+            <button class="shp-btn" data-val="draw"      onclick="shapeToggle(this)">Draw</button>
+            <button class="shp-btn straight" data-val="straight" onclick="shapeToggle(this)">Straight</button>
+            <button class="shp-btn" data-val="fade"      onclick="shapeToggle(this)">Fade</button>
+            <button class="shp-btn" data-val="push"      onclick="shapeToggle(this)">Push</button>
+            <button class="shp-btn" data-val="slice"     onclick="shapeToggle(this)">Slice</button>
+            <button class="shp-btn" data-val="shank"     onclick="shapeToggle(this)">Shank</button>
+          </div>` : ''}
+
+          <div class="routine-sub-label">FEEL (Contact)</div>
+          <div class="mini-toggle-group" data-key="${id}-feel" style="margin-bottom:10px;">
+            <button class="mtb" data-val="flushed" onclick="miniToggle(this)">Flushed</button>
+            <button class="mtb" data-val="toe"     onclick="miniToggle(this)">Toe</button>
+            <button class="mtb" data-val="heel"    onclick="miniToggle(this)">Heel</button>
+            <button class="mtb" data-val="high"    onclick="miniToggle(this)">High</button>
+            <button class="mtb" data-val="low"     onclick="miniToggle(this)">Low</button>
+          </div>
+
+          <div class="routine-sub-label">COMMIT LEVEL</div>
+          <div class="commit-stars" id="${id}-commit" style="margin-bottom:10px;">
+            ${[1,2,3,4,5].map(n => `<button class="star-btn" data-val="${n}" onclick="starToggle(this,'${id}-commit')">●</button>`).join('')}
+          </div>
+
+          <div class="routine-sub-label">LEARN / NOTE</div>
+          <div style="display:flex;gap:5px;margin-bottom:6px;">
+            <button class="learn-btn" data-val="positive" onclick="learnToggle(this)">💪 Confidence</button>
+            <button class="learn-btn" data-val="lesson"   onclick="learnToggle(this)">📖 Lesson</button>
+            <button class="learn-btn" data-val="neutral"  onclick="learnToggle(this)">📌 Note</button>
+          </div>
+          <textarea id="${id}-note" rows="2" placeholder="What happened? What to remember?" style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:'DM Sans';font-size:13px;padding:9px 10px;outline:none;resize:none;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+        </div>
+      </div>
+    </div>
+  ` : `<div style="text-align:center;padding:8px 0 2px;font-size:12px;color:var(--text3);">↑ 샷 종류를 먼저 선택하세요</div>`;
+
+  return `
+    <button onclick="document.getElementById('${id}').remove();updateStgStatus()"
+      style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;">✕</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-family:'DM Mono';font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;">SHOT ${num}</span>
+      ${meta ? `<span style="font-family:'DM Mono';font-size:10px;background:${meta.bg};color:${meta.color};border:1px solid ${meta.color};border-radius:99px;padding:2px 8px;text-transform:uppercase;letter-spacing:0.8px;">${meta.label}</span>` : ''}
+    </div>
+    <div style="display:flex;gap:5px;margin-bottom:${intent ? '12px' : '6px'};">
+      ${intentBtns}
+    </div>
+    ${detailHTML}
+  `;
+}
+
+function setStgIntent(id, intent) {
+  const wrap = document.getElementById(id);
+  if (!wrap) return;
+  const num = id.split('-')[1];
+  // Preserve any existing dist value
+  const distVal = document.getElementById(id + '-dist')?.value || '';
+  // Auto-classify if selecting approach or arg with existing dist
+  let finalIntent = intent;
+  if ((intent === 'approach' || intent === 'arg') && distVal !== '') {
+    const d = parseFloat(distVal);
+    if (!isNaN(d)) finalIntent = d >= 50 ? "approach" : "arg";
+  }
+  wrap.dataset.intent = finalIntent;
+  const meta = GS_META[finalIntent];
+  wrap.style.borderColor = meta.color;
+  setTimeout(() => wrap.style.borderColor = 'var(--border)', 600);
+  wrap.innerHTML = buildStgShotHTML(id, num, finalIntent, distVal);
+  updateStgStatus();
+}
+
+function onStgDistChange(id, val) {
+  const wrap = document.getElementById(id);
+  if (!wrap) return;
+  const intent = wrap.dataset.intent;
+  // Only auto-reclassify for approach ↔ arg
+  if (intent !== 'approach' && intent !== 'arg') return;
+  const dist = parseFloat(val);
+  if (isNaN(dist)) return;
+  const newIntent = dist >= 50 ? 'approach' : 'arg';
+  if (newIntent === intent) return;
+  const num = id.split('-')[1];
+  wrap.dataset.intent = newIntent;
+  const meta = GS_META[newIntent];
+  wrap.style.borderColor = meta.color;
+  setTimeout(() => wrap.style.borderColor = 'var(--border)', 600);
+  wrap.innerHTML = buildStgShotHTML(id, num, newIntent, val);
+  updateStgStatus();
+}
+
+function stgToggle(btn) {
+  const key = btn.hasAttribute('data-stg-result') ? 'data-stg-result' : 'data-stg-type';
+  btn.parentElement.querySelectorAll('button[' + key + ']').forEach(b => {
+    b.style.background = 'var(--surface)';
+    b.style.borderColor = 'var(--border)';
+    b.style.color = 'var(--text3)';
+    b.dataset.active = '';
+  });
+  btn.dataset.active = 'true';
+  const intent = btn.closest('[data-intent]')?.dataset.intent || 'approach';
+  const m = GS_META[intent] || GS_META.approach;
+  btn.style.background = m.bg;
+  btn.style.borderColor = m.color;
+  btn.style.color = m.color;
+}
+
+function updateStgStatus() {
+  const el = document.getElementById('stgStatus');
+  if (!el) return;
+  const shots = [...document.querySelectorAll('#stgShots > div')];
+  if (!shots.length) { el.textContent = 'Tap to enter'; return; }
+  const c = {approach:0, arg:0, layup:0, recovery:0};
+  shots.forEach(s => { if (c[s.dataset.intent] !== undefined) c[s.dataset.intent]++; });
+  const parts = [];
+  if (c.approach) parts.push(`${c.approach} APP`);
+  if (c.arg)      parts.push(`${c.arg} ARG`);
+  if (c.layup)    parts.push(`${c.layup} Layup`);
+  if (c.recovery) parts.push(`${c.recovery} Rcvry`);
+  if (!parts.length) parts.push(`${shots.length} shot${shots.length>1?'s':''}`);
+  el.textContent = parts.join(' · ');
+}
+
+function collectStgShots() {
+  return [...document.querySelectorAll('#stgShots > div')].map(wrap => {
+    const id = wrap.id;
+    const stars = [...wrap.querySelectorAll(`#${id}-commit .star-btn.active`)];
+    return {
+      intent:      wrap.dataset.intent,
+      dist:        document.getElementById(id+'-dist')?.value || '',
+      club:        document.getElementById(id+'-club')?.value || '',
+      // pre — wind
+      windStr:     wrap.querySelector(`[data-key="${id}-wind-str"] .mtb.active`)?.dataset.val || null,
+      windDir:     wrap.querySelector(`[data-key="${id}-wind-dir"] .wbtn8.active`)?.dataset.val || null,
+      // pre — lie
+      lieQuality:  wrap.querySelector(`[data-key="${id}-lie-quality"] .mtb.active`)?.dataset.val || null,
+      lieBall:     wrap.querySelector(`[data-key="${id}-lie-ball"] .mtb.active`)?.dataset.val || null,
+      lieSlope:    wrap.querySelector(`[data-key="${id}-lie-slope"] .mtb.active`)?.dataset.val || null,
+      lieStance:   wrap.querySelector(`[data-key="${id}-lie-stance"] .mtb.active`)?.dataset.val || null,
+      // pre — target
+      argType:     wrap.querySelector(`[data-key="${id}-arg-type"] .mtb.active`)?.dataset.val || null,
+      targetTraj:  wrap.querySelector(`[data-key="${id}-tgt-traj"] .mtb.active`)?.dataset.val || null,
+      targetShape: wrap.querySelector(`[data-key="${id}-tgt-shape"] .shp-btn.active`)?.dataset.val || null,
+      // post
+      result:      wrap.querySelector(`[data-key="${id}-result"] .mtb.active`)?.dataset.val || null,
+      resTraj:     wrap.querySelector(`[data-key="${id}-res-traj"] .mtb.active`)?.dataset.val || null,
+      resShape:    wrap.querySelector(`[data-key="${id}-res-shape"] .shp-btn.active`)?.dataset.val || null,
+      feel:        wrap.querySelector(`[data-key="${id}-feel"] .mtb.active`)?.dataset.val || null,
+      commit:      stars.length ? stars[stars.length-1]?.dataset.val : null,
+      learnType:   wrap.querySelector(`#${id}PostBody .learn-btn.active`)?.dataset.val || null,
+      note:        document.getElementById(id+'-note')?.value || null,
+    };
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// PUTTING — per-putt cards (PRE + POST)
+// ═══════════════════════════════════════════════════════
+let puttCardCount = 0;
+
+function addPuttCard() {
+  puttCardCount++;
+  const id = 'putt-' + puttCardCount;
+  const wrap = document.createElement('div');
+  wrap.id = id;
+  wrap.style.cssText = 'background:var(--surface3);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;position:relative;border:1.5px solid var(--border);';
+  wrap.innerHTML = buildPuttCardHTML(id, puttCardCount);
+  document.getElementById('puttCards').appendChild(wrap);
+  updatePuttStatus();
+  // init slider
+  const slider = document.getElementById(id + '-slider');
+  const input  = document.getElementById(id + '-dist-input');
+  if (slider && input) {
+    slider.value = 3;
+    input.value  = 3;
+  }
+}
+
+function buildPuttCardHTML(id, num) {
+  return `
+    <button onclick="document.getElementById('${id}').remove();updatePuttStatus()"
+      style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;">✕</button>
+    <div style="font-family:'DM Mono';font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">PUTT ${num}</div>
+
+    <!-- PRE -->
+    <div class="routine-block" style="margin-bottom:6px;">
+      <div class="routine-header" onclick="toggleRoutine('${id}Pre')">
+        <div class="routine-badge pre">PRE</div>
+        <span class="routine-title">Read &amp; Plan</span>
+        <svg class="routine-chevron open" id="${id}PreChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="routine-body open" id="${id}PreBody">
+        <div class="routine-sub-label">PUTT DISTANCE (m)</div>
+        <div class="putt-dist-ctrl">
+          <input id="${id}-slider" type="range" min="1" max="10" step="0.5" value="3"
+            class="putt-slider"
+            oninput="syncPuttDist('${id}', this.value, 'slider')">
+          <input id="${id}-dist-input" type="text" inputmode="numeric" pattern="[0-9]*" value="8"
+            class="putt-dist-input"
+            oninput="syncPuttDist('${id}', this.value, 'input')">
+          <span class="putt-dist-unit">m</span>
+        </div>
+
+        <div class="routine-sub-label">SLOPE</div>
+        <div class="mini-toggle-group" data-key="${id}-slope" style="margin-bottom:8px;flex-wrap:wrap;">
+          <button class="mtb" data-val="flat"     onclick="miniToggle(this)">Flat</button>
+          <button class="mtb" data-val="uphill"   onclick="miniToggle(this)">Uphill</button>
+          <button class="mtb" data-val="downhill" onclick="miniToggle(this)">Downhill</button>
+          <button class="mtb" data-val="up-down"  onclick="miniToggle(this)">Up→Down</button>
+          <button class="mtb" data-val="down-up"  onclick="miniToggle(this)">Down→Up</button>
+        </div>
+
+        <div class="routine-sub-label">BREAK</div>
+        <div class="mini-toggle-group" data-key="${id}-break" style="margin-bottom:8px;">
+          <button class="mtb" data-val="straight" onclick="miniToggle(this)">Straight</button>
+          <button class="mtb" data-val="left"     onclick="miniToggle(this)">← Left</button>
+          <button class="mtb" data-val="right"    onclick="miniToggle(this)">Right →</button>
+          <button class="mtb" data-val="double"   onclick="miniToggle(this)">Double</button>
+        </div>
+
+        <div class="routine-sub-label">GREEN SPEED</div>
+        <div class="mini-toggle-group" data-key="${id}-pre-speed">
+          <button class="mtb" data-val="slow"   onclick="miniToggle(this)">Slow</button>
+          <button class="mtb" data-val="medium" onclick="miniToggle(this)">Medium</button>
+          <button class="mtb" data-val="fast"   onclick="miniToggle(this)">Fast</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- POST -->
+    <div class="routine-block">
+      <div class="routine-header" onclick="toggleRoutine('${id}Post')">
+        <div class="routine-badge post">POST</div>
+        <span class="routine-title">Result &amp; Learn</span>
+        <svg class="routine-chevron" id="${id}PostChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="routine-body" id="${id}PostBody">
+        <div class="routine-sub-label">RESULT</div>
+        <div class="outcome-row" style="margin-bottom:12px;">
+          <button class="outcome-btn made"   onclick="puttOutcomeToggle(this,'${id}')" data-val="made">✓ Made</button>
+          <button class="outcome-btn missed" onclick="puttOutcomeToggle(this,'${id}')" data-val="missed">✗ Missed</button>
+        </div>
+
+        <div class="routine-sub-label">SPEED</div>
+        <div class="mini-toggle-group" data-key="${id}-post-speed" style="margin-bottom:10px;">
+          <button class="mtb" data-val="short" onclick="miniToggle(this)">짧음 ↓</button>
+          <button class="mtb" data-val="good"  onclick="miniToggle(this)">좋음 ✓</button>
+          <button class="mtb" data-val="long"  onclick="miniToggle(this)">김 ↑</button>
+        </div>
+
+        <div class="routine-sub-label">START LINE</div>
+        <div class="mini-toggle-group" data-key="${id}-start-line" style="margin-bottom:10px;">
+          <button class="mtb" data-val="left"  onclick="miniToggle(this)">← Left</button>
+          <button class="mtb" data-val="good"  onclick="miniToggle(this)">Good ✓</button>
+          <button class="mtb" data-val="right" onclick="miniToggle(this)">Right →</button>
+        </div>
+
+        <div class="routine-sub-label">READ (브레이크 판정)</div>
+        <div class="read-row" style="margin-bottom:4px;">
+          <button class="read-btn" data-val="R--" onclick="readToggle(this)">R−−</button>
+          <button class="read-btn" data-val="R-"  onclick="readToggle(this)">R−</button>
+          <button class="read-btn" data-val="R0"  onclick="readToggle(this)">R0</button>
+          <button class="read-btn" data-val="R+"  onclick="readToggle(this)">R+</button>
+          <button class="read-btn" data-val="R++" onclick="readToggle(this)">R++</button>
+        </div>
+        <div style="font-family:'DM Mono';font-size:9px;color:var(--text3);margin-bottom:10px;line-height:1.6;">
+          R−− 훨씬 덜 꺾임 &nbsp;|&nbsp; R− 덜 꺾임 &nbsp;|&nbsp; R0 정확 &nbsp;|&nbsp; R+ 더 꺾임 &nbsp;|&nbsp; R++ 훨씬 더 꺾임
+        </div>
+
+        <div class="routine-sub-label">STROKE FEEL</div>
+        <div class="mini-toggle-group" data-key="${id}-feel" style="margin-bottom:10px;">
+          <button class="mtb" data-val="solid"  onclick="miniToggle(this)">Solid</button>
+          <button class="mtb" data-val="pushed" onclick="miniToggle(this)">Pushed</button>
+          <button class="mtb" data-val="pulled" onclick="miniToggle(this)">Pulled</button>
+          <button class="mtb" data-val="thin"   onclick="miniToggle(this)">Thin</button>
+          <button class="mtb" data-val="decel"  onclick="miniToggle(this)">Decel</button>
+        </div>
+
+        <div class="routine-sub-label">NOTE</div>
+        <textarea id="${id}-note" rows="2" placeholder="Read right? Pace? Line?" style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:'DM Sans';font-size:13px;padding:9px 10px;outline:none;resize:none;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      </div>
+    </div>
+  `;
+}
+
+function syncPuttDist(id, val, source) {
+  const slider = document.getElementById(id + '-slider');
+  const input  = document.getElementById(id + '-dist-input');
+  if (!slider || !input) return;
+  const num = parseFloat(val);
+  if (isNaN(num) || num < 0) return;
+  if (source === 'slider') {
+    input.value = num;
+  } else {
+    // clamp slider to its range visually
+    slider.value = Math.min(10, Math.max(1, num));
+  }
+  updatePuttStatus();
+}
+
+function puttOutcomeToggle(btn, id) {
+  const row = btn.closest('.outcome-row');
+  row.querySelectorAll('.outcome-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updatePuttStatus();
+}
+
+function updatePuttStatus() {
+  const el = document.getElementById('puttStatus');
+  if (!el) return;
+  const cards = [...document.querySelectorAll('#puttCards > div')];
+  if (!cards.length) { el.textContent = 'Tap to enter'; return; }
+  let made = 0, missed = 0;
+  cards.forEach(c => {
+    if (c.querySelector('.outcome-btn.made.active'))   made++;
+    if (c.querySelector('.outcome-btn.missed.active')) missed++;
+  });
+  const total = cards.length;
+  const parts = [`${total} putt${total > 1 ? 's' : ''}`];
+  if (made + missed > 0) parts.push(`${made} made / ${missed} missed`);
+  el.textContent = parts.join(' · ');
+}
+
+function collectPuttCards() {
+  return [...document.querySelectorAll('#puttCards > div')].map(wrap => {
+    const id = wrap.id;
+    const outcome = wrap.querySelector('.outcome-btn.active')?.dataset.val || null;
+    return {
+      dist:      document.getElementById(id + '-dist-input')?.value || null,
+      slope:     wrap.querySelector(`[data-key="${id}-slope"] .mtb.active`)?.dataset.val || null,
+      break:     wrap.querySelector(`[data-key="${id}-break"] .mtb.active`)?.dataset.val || null,
+      preSpeed:  wrap.querySelector(`[data-key="${id}-pre-speed"] .mtb.active`)?.dataset.val || null,
+      outcome,
+      postSpeed: wrap.querySelector(`[data-key="${id}-post-speed"] .mtb.active`)?.dataset.val || null,
+      startLine: wrap.querySelector(`[data-key="${id}-start-line"] .mtb.active`)?.dataset.val || null,
+      read:      wrap.querySelector(`#${id}PostBody .read-btn.active`)?.dataset.val || null,
+      feel:      wrap.querySelector(`[data-key="${id}-feel"] .mtb.active`)?.dataset.val || null,
+      note:      document.getElementById(id + '-note')?.value || null,
+    };
+  });
+}
+
+function resetPuttCards() {
+  puttCardCount = 0;
+  const cards = document.getElementById('puttCards');
+  if (cards) cards.innerHTML = '';
+  updatePuttStatus();
+}
+
+// Legacy stubs — keep for backwards compat with loadHole/fillHoleForm
+function resetPuttGrid() { resetPuttCards(); }
+let activePuttDist = null;
+let putts = [];
+
+
+// ═══════════════════════════════════════════════════════
+// TOGGLE HELPERS
+// ═══════════════════════════════════════════════════════
+function toggleActive(btn, group, val) {
+  // Find all buttons in same group
+  btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => {
+    b.classList.remove('active','active-red','active-blue','active-yellow');
+  });
+  btn.classList.add('active');
+}
+
+function getActiveVal(group) {
+  // For groups inside modal
+  const btns = document.querySelectorAll(`[data-val]`);
+  // fallback
+  return null;
+}
+
+function clearToggles(group) {
+  // Can't reliably target by group name without data attr, iterate
+}
+
+function setToggleActive(group, val) {
+  document.querySelectorAll('.toggle-btn').forEach(b => {
+    if (b.getAttribute('data-val') === val) {
+      // only if in right section... rough but functional
+    }
+  });
+}
+
+// Better: use data-group attributes
+// For now collect by closest toggle-group inside each section
+
+function getSectionToggle(sectionId, toggleClass) {
+  const section = document.getElementById(sectionId);
+  if (!section) return null;
+  const active = section.querySelector('.toggle-btn.active');
+  return active ? active.getAttribute('data-val') : null;
+}
+
+// ═══════════════════════════════════════════════════════
+// SAVE HOLE
+// ═══════════════════════════════════════════════════════
+function saveHole() {
+  if (!state.activeRoundId) return;
+  const n = state.activeHole;
+  const par = DEFAULT_COURSE.pars[n-1] || 4;
+
+  const teeRoutine = collectTeeRoutine();
+
+  const hd = {
+    score: currentScore,
+    par,
+    teeClub:  document.getElementById('teeClub')?.value || '',
+    teeCarry: document.getElementById('teeCarry')?.value || '',
+    // backwards-compat fields for stats
+    teeResult: teeRoutine.landing,
+    teeMiss:   teeRoutine.resultDir,
+    teeRoutine,
+    stgShots: collectStgShots(),
+    puttCards: collectPuttCards(),
+    // legacy compat
+    firstPuttDist: (() => { const c = collectPuttCards(); return c.length ? c[0].dist : null; })(),
+    putts: collectPuttCards().map(c => ({ dist: c.dist, result: c.outcome })),
+    notes: document.getElementById('holeNotes')?.value || '',
+    savedAt: new Date().toISOString()
+  };
+
+  if (!state.holeData[state.activeRoundId]) state.holeData[state.activeRoundId] = {};
+  state.holeData[state.activeRoundId][n] = hd;
+
+  saveState();
+  buildHoleNav();
+
+  const round = getActiveRound();
+  const nextHole = n < round.holes ? n + 1 : null;
+
+  showToast(nextHole ? `Hole ${n} saved ✓` : 'Round complete! 🏆');
+
+  if (nextHole) {
+    setTimeout(() => gotoHole(nextHole), 300);
+  }
+  updateStatuses();
+}
+
+// ═══════════════════════════════════════════════════════
+// SECTION TOGGLE
+// ═══════════════════════════════════════════════════════
+function toggleSection(name) {
+  const body = document.getElementById(name + 'Body');
+  const chevron = document.getElementById(name + 'Chevron');
+  if (!body) return;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  chevron?.classList.toggle('open', !isOpen);
+}
+
+
+function toggleRoutine(name) {
+  const body = document.getElementById(name + 'Body');
+  const chevron = document.getElementById(name + 'Chevron');
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  chevron?.classList.toggle('open', open);
+}
+
+function miniToggle(btn) {
+  const group = btn.closest('.mini-toggle-group');
+  group?.querySelectorAll('.mtb').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function shapeToggle(btn) {
+  const group = btn.closest('.shape-row');
+  group?.querySelectorAll('.shp-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function windToggle(btn) {
+  const grid = btn.closest('.wind-grid');
+  grid?.querySelectorAll('.wbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function windToggle8(btn) {
+  const grid = btn.closest('.wind-grid8');
+  grid?.querySelectorAll('.wbtn8').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function readToggle(btn) {
+  btn.closest('.read-row').querySelectorAll('.read-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function starToggle(btn, groupId) {
+  const group = document.getElementById(groupId);
+  if (!group) return;
+  const val = parseInt(btn.dataset.val);
+  group.querySelectorAll('.star-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.val) <= val);
+  });
+}
+
+function learnToggle(btn, groupId) {
+  // find siblings by data-key attr on parent, or just nearest div
+  btn.closest('div').querySelectorAll('.learn-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// Read helper: get active val from a group by container data-key
+function getGroupVal(containerSelector, valAttr) {
+  const active = document.querySelector(`${containerSelector} .active, ${containerSelector}.active`);
+  return active ? (active.dataset.val || active.textContent.trim()) : null;
+}
+
+// Collect routine data from tee shot DOM
+function collectTeeRoutine() {
+  const get = (sel) => document.querySelector(sel)?.dataset?.val || document.querySelector(sel)?.textContent?.trim() || null;
+  const getActive = (parent, cls) => document.querySelector(`#${parent} ${cls}.active`)?.dataset?.val || null;
+  const stars = [...document.querySelectorAll('#teeCommitStars .star-btn.active')];
+
+  return {
+    // PRE
+    windStr:       document.querySelector('[data-key="teeWindStr"] .mtb.active')?.dataset.val || null,
+    windDir:       document.querySelector('[data-key="teeWindDir"] .wbtn8.active')?.dataset.val || null,
+    targetTraj:    document.querySelector('[data-key="teeTargetTraj"] .mtb.active')?.dataset.val || null,
+    targetShape:   document.querySelector('[data-key="teeTargetShape"] .shp-btn.active')?.dataset.val || null,
+    // POST
+    landing:       document.querySelector('[data-key="teeLanding"] .mtb.active')?.dataset.val || null,
+    actualCarry:   document.getElementById('teeActualCarry')?.value || null,
+    resultTraj:    document.querySelector('[data-key="teeResultTraj"] .mtb.active')?.dataset.val || null,
+    resultShape:   document.querySelector('[data-key="teeResultShape"] .shp-btn.active')?.dataset.val || null,
+    feel:          document.querySelector('[data-key="teeFeel"] .mtb.active')?.dataset.val || null,
+    commit:        (() => { const s = [...document.querySelectorAll('#teeCommitStars .star-btn.active')]; return s.length ? s[s.length-1].dataset.val : null; })(),
+    learnType:     document.querySelector('#teePostBody .learn-btn.active')?.dataset.val || null,
+    learnNote:     document.getElementById('teeLearnNote')?.value || null,
+  };
+}
+
+function collectPuttRoutine() {
+  return {
+    break:      document.querySelector('[data-key="puttBreak"] .mtb.active')?.dataset.val || null,
+    speed:      document.querySelector('[data-key="puttSpeed"] .mtb.active')?.dataset.val || null,
+    postSpeed:  document.querySelector('[data-key="puttPostSpeed"] .mtb.active')?.dataset.val || null,
+    startLine:  document.querySelector('[data-key="puttStartLine"] .mtb.active')?.dataset.val || null,
+    read:       document.querySelector('.read-row .read-btn.active')?.dataset.val || null,
+    feel:       document.querySelector('[data-key="puttFeel"] .mtb.active')?.dataset.val || null,
+    learnNote:  document.getElementById('puttLearnNote')?.value || null,
+  };
+}
+
+
+
+function updateStatuses() {
+  // Called after load/save to keep headers accurate
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER HOME
+// ═══════════════════════════════════════════════════════
+function renderHome() {
+  const list = document.getElementById('roundsList');
+  if (state.rounds.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="es-icon">⛳</div><div class="es-title">No rounds yet</div><div class="es-sub">Start a new round to begin<br>tracking your game</div></div>`;
+    return;
+  }
+  list.innerHTML = '';
+  state.rounds.forEach(r => {
+    const holes = state.holeData[r.id] || {};
+    const completed = Object.keys(holes).length;
+    const totalScore = Object.values(holes).reduce((s, h) => s + (h.score || 0), 0);
+    const totalPar = Object.values(holes).reduce((s, h) => s + (h.par || 4), 0);
+    const vp = totalScore - totalPar;
+
+    const card = document.createElement('div');
+    card.className = 'round-card';
+    card.innerHTML = `
+      <div class="rc-accent-bar"></div>
+      <div class="round-card-date">${formatDate(r.date)}</div>
+      <div class="round-card-course">${r.course}</div>
+      <div class="round-card-stats">
+        <div class="rc-stat"><div class="rc-stat-val">${totalScore || '—'}</div><div class="rc-stat-label">Score</div></div>
+        <div class="rc-stat"><div class="rc-stat-val" style="color:${vp>0?'var(--red)':vp<0?'var(--accent)':'var(--text2)'}">${totalScore ? (vp === 0 ? 'E' : vp > 0 ? '+'+vp : vp) : '—'}</div><div class="rc-stat-label">To Par</div></div>
+        <div class="rc-stat"><div class="rc-stat-val" style="color:var(--text2)">${completed}/${r.holes}</div><div class="rc-stat-label">Holes</div></div>
+      </div>
+    `;
+    card.onclick = () => {
+      state.activeRoundId = r.id;
+      state.activeHole = Object.keys(holes).length < r.holes ? Object.keys(holes).length + 1 : 1;
+      buildHoleNav();
+      loadHole(state.activeHole);
+      showPage('input');
+    };
+    list.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// POPULATE SELECTS
+// ═══════════════════════════════════════════════════════
+function populateRoundSelects() {
+  ['statsRoundSel', 'cardRoundSel'].forEach(id => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Select a round</option>';
+    state.rounds.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = `${formatDate(r.date)} — ${r.course}`;
+      sel.appendChild(opt);
+    });
+    if (state.activeRoundId) sel.value = state.activeRoundId;
+    else if (cur) sel.value = cur;
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// STATS / ANALYSIS
+// ═══════════════════════════════════════════════════════
+function renderStats() {
+  const roundId = document.getElementById('statsRoundSel').value;
+  const content = document.getElementById('statsContent');
+  if (!roundId) {
+    content.innerHTML = `<div class="empty-state"><div class="es-icon">📊</div><div class="es-title">Select a round</div><div class="es-sub">Complete holes to see analysis</div></div>`;
+    return;
+  }
+  const holes = state.holeData[roundId] || {};
+  const hArr = Object.entries(holes).map(([n, d]) => ({...d, n: parseInt(n)}));
+  if (hArr.length === 0) {
+    content.innerHTML = `<div class="empty-state"><div class="es-icon">📊</div><div class="es-title">No data yet</div><div class="es-sub">Complete some holes first</div></div>`;
+    return;
+  }
+
+  // Compute stats
+  const totalScore = hArr.reduce((s,h) => s + h.score, 0);
+  const totalPar = hArr.reduce((s,h) => s + h.par, 0);
+  const totalPutts = hArr.reduce((s,h) => s + (h.putts?.length || 0), 0);
+  const fairwaysHit = hArr.filter(h => h.par >= 4 && h.teeResult === 'FW').length;
+  const fairwaysAtt = hArr.filter(h => h.par >= 4).length;
+  const girHoles = hArr.filter(h => {
+    if (!h.score || !h.par) return false;
+    return h.putts && h.putts.length <= (h.score - h.par + 2);
+  }).length;
+  const avgPutts = hArr.length ? (totalPutts / hArr.length).toFixed(1) : '—';
+  const fwPct = fairwaysAtt ? Math.round(fairwaysHit / fairwaysAtt * 100) : 0;
+  const girPct = hArr.length ? Math.round(girHoles / hArr.length * 100) : 0;
+
+  // Miss direction analysis
+  const missCounts = {left:0, right:0, center:0};
+  hArr.forEach(h => {
+    if (h.teeResult === 'FW') missCounts.center++;
+    else if (h.teeMiss === 'LL' || h.teeMiss === 'SL') missCounts.left++;
+    else if (h.teeMiss === 'HR' || h.teeMiss === 'SR') missCounts.right++;
+  });
+
+  // Putt distance analysis
+  const puttMade = {}; const puttMissed = {};
+  hArr.forEach(h => {
+    if (!h.firstPuttDist) return;
+    const d = h.firstPuttDist;
+    if (!puttMade[d]) { puttMade[d] = 0; puttMissed[d] = 0; }
+    if (h.putts && h.putts[0]) {
+      if (h.putts[0].result === 'made') puttMade[d]++;
+      else puttMissed[d]++;
+    }
+  });
+
+  // SG estimates (simplified — based on PGA Tour baseline putts per hole by dist)
+  const puttBaseline = {3:1.01,4:1.05,5:1.1,6:1.18,8:1.3,10:1.43,12:1.55,15:1.7,20:1.86,25:1.93,30:1.97,'40+':1.99};
+  let sgPutt = 0;
+  hArr.forEach(h => {
+    if (!h.firstPuttDist || !h.putts?.length) return;
+    const baseline = puttBaseline[h.firstPuttDist] || 2;
+    sgPutt += baseline - h.putts.length;
+  });
+  sgPutt = parseFloat(sgPutt.toFixed(2));
+
+  // SG OTT (rough estimate based on fairway hit)
+  let sgOTT = hArr.filter(h => h.par >= 4).reduce((s,h) => {
+    if (h.teeResult === 'FW') return s + 0.1;
+    if (h.teeResult === 'OB') return s - 0.8;
+    return s - 0.15;
+  }, 0);
+  sgOTT = parseFloat(sgOTT.toFixed(2));
+
+  // SG APP (based on stgShots results, approach category only)
+  let sgAPP = hArr.reduce((s,h) => {
+    const appShots = (h.stgShots || []).filter(sh => sh.category === 'approach');
+    appShots.forEach(sh => {
+      if (sh.result === 'GIR')    s += 0.4;
+      else if (sh.result === 'Rough')   s -= 0.1;
+      else if (sh.result === 'Bunker')  s -= 0.2;
+      else if (sh.result === 'Short' || sh.result === 'Long') s -= 0.15;
+      else if (sh.result === 'Left'  || sh.result === 'Right') s -= 0.2;
+    });
+    // legacy fallback
+    if (!appShots.length && h.atgResult) {
+      if (h.atgResult === 'close') s += 0.4;
+      else if (h.atgResult === 'long') s -= 0.3;
+    }
+    return s;
+  }, 0);
+  sgAPP = parseFloat(sgAPP.toFixed(2));
+
+  // SG ARG (based on stgShots, arg category)
+  let sgARG = hArr.reduce((s,h) => {
+    const argShots = (h.stgShots || []).filter(sh => sh.category === 'arg');
+    argShots.forEach(sh => {
+      if (sh.result === 'Close (<2m)')   s += 0.6;
+      else if (sh.result === 'Mid (2-5m)') s += 0.1;
+      else if (sh.result === 'Long (5m+)') s -= 0.2;
+      else s -= 0.3;
+    });
+    return s;
+  }, 0);
+  sgARG = parseFloat(sgARG.toFixed(2));
+
+  const sgTotal = parseFloat((sgPutt + sgOTT + sgAPP + sgARG).toFixed(2));
+
+  // Build SG bars
+  const sgData = [
+    {label:'Total',      val: sgTotal, key:'tot'},
+    {label:'Off Tee',    val: sgOTT,   key:'ott'},
+    {label:'Approach',   val: sgAPP,   key:'app'},
+    {label:'Arg',        val: sgARG,   key:'arg'},
+    {label:'Putting',    val: sgPutt,  key:'putt'},
+  ];
+  const maxAbs = Math.max(...sgData.map(d => Math.abs(d.val)), 1);
+
+  content.innerHTML = '';
+
+  // SG section
+  const sgSection = document.createElement('div');
+  sgSection.innerHTML = `<div class="section-label">STROKES GAINED (est.)</div>`;
+  const sgBox = document.createElement('div');
+  sgBox.className = 'sg-overview';
+  sgData.forEach(d => {
+    const pct = Math.abs(d.val) / maxAbs * 100;
+    const row = document.createElement('div');
+    row.className = 'sg-row';
+    row.innerHTML = `
+      <div class="sg-label">${d.label}</div>
+      <div class="sg-bar-wrap"><div class="sg-bar ${d.val >= 0 ? 'pos' : 'neg'}" style="width:${pct}%"></div></div>
+      <div class="sg-val ${d.val >= 0 ? 'pos' : 'neg'}">${d.val > 0 ? '+' : ''}${d.val}</div>
+    `;
+    sgBox.appendChild(row);
+  });
+  sgSection.appendChild(sgBox);
+  content.appendChild(sgSection);
+
+  // Stat tiles
+  const tilesWrap = document.createElement('div');
+  tilesWrap.innerHTML = `<div class="section-label">ROUND STATS</div>`;
+  const tileGrid = document.createElement('div');
+  tileGrid.className = 'stat-grid';
+  const vp = totalScore - totalPar;
+  const tiles = [
+    {val: vp === 0 ? 'E' : (vp > 0 ? '+'+vp : vp), label:'Total Score', color: vp > 0 ? 'var(--red)' : vp < 0 ? 'var(--accent)' : 'var(--text)'},
+    {val: avgPutts, label:'Avg Putts/Hole', color:'var(--blue)'},
+    {val: fwPct + '%', label:'Fairways Hit', color: fwPct >= 60 ? 'var(--accent)' : 'var(--yellow)'},
+    {val: girPct + '%', label:'GIR', color: girPct >= 60 ? 'var(--accent)' : 'var(--yellow)'},
+    {val: hArr.length, label:'Holes Played', color:'var(--text2)'},
+    {val: totalPutts, label:'Total Putts', color: totalPutts < hArr.length * 2 ? 'var(--accent)' : 'var(--text2)'},
+  ];
+  tiles.forEach(t => {
+    const tile = document.createElement('div');
+    tile.className = 'stat-tile';
+    tile.innerHTML = `<div class="stat-tile-val" style="color:${t.color}">${t.val}</div><div class="stat-tile-label">${t.label}</div>`;
+    tileGrid.appendChild(tile);
+  });
+  tilesWrap.appendChild(tileGrid);
+  content.appendChild(tilesWrap);
+
+  // Miss direction
+  const missWrap = document.createElement('div');
+  missWrap.innerHTML = `<div class="section-label">MISS PATTERN (TEE)</div>`;
+  const missBox = document.createElement('div');
+  missBox.className = 'miss-chart';
+  const total = missCounts.left + missCounts.right + missCounts.center || 1;
+  missBox.innerHTML = `
+    <div class="miss-title">Shot Distribution</div>
+    <div class="miss-grid">
+      <div class="miss-cell" style="opacity:0.3"></div>
+      <div class="miss-cell" style="background:rgba(74,222,128,${missCounts.center/total*0.4+0.05})">
+        <span class="cell-count">${missCounts.center}</span>
+        <span class="cell-label">FW</span>
+      </div>
+      <div class="miss-cell" style="opacity:0.3"></div>
+      <div class="miss-cell" style="background:rgba(248,113,113,${missCounts.left/total*0.5+0.03})">
+        <span class="cell-count">${missCounts.left}</span>
+        <span class="cell-label">Left</span>
+      </div>
+      <div class="miss-cell center">✦</div>
+      <div class="miss-cell" style="background:rgba(248,113,113,${missCounts.right/total*0.5+0.03})">
+        <span class="cell-count">${missCounts.right}</span>
+        <span class="cell-label">Right</span>
+      </div>
+      <div class="miss-cell" style="opacity:0.3"></div>
+      <div class="miss-cell" style="opacity:0.3"></div>
+      <div class="miss-cell" style="opacity:0.3"></div>
+    </div>
+  `;
+  missWrap.appendChild(missBox);
+  content.appendChild(missWrap);
+
+  // Putt chart
+  const puttKeys = Object.keys(puttMade);
+  if (puttKeys.length > 0) {
+    const puttWrap = document.createElement('div');
+    puttWrap.innerHTML = `<div class="section-label">PUTTING BY DISTANCE</div>`;
+    const puttBox = document.createElement('div');
+    puttBox.className = 'putt-dist-chart';
+    const maxVal = Math.max(...puttKeys.map(k => (puttMade[k]||0) + (puttMissed[k]||0)), 1);
+    puttBox.innerHTML = `
+      <div class="miss-title">Made vs Missed</div>
+      <div class="chart-bars">
+        ${puttKeys.sort((a,b) => parseFloat(a)-parseFloat(b)).map(k => {
+          const m = puttMade[k] || 0;
+          const ms = puttMissed[k] || 0;
+          const tot = m + ms;
+          return `
+            <div class="chart-bar-wrap">
+              <div class="chart-bar missed" style="height:${ms/maxVal*70}px"></div>
+              <div class="chart-bar made" style="height:${m/maxVal*70}px"></div>
+              <span class="chart-bar-label">${k}m</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Made</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Missed</div>
+      </div>
+    `;
+    puttWrap.appendChild(puttBox);
+    content.appendChild(puttWrap);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// SCORECARD
+// ═══════════════════════════════════════════════════════
+function renderScorecard() {
+  const roundId = document.getElementById('cardRoundSel').value;
+  const content = document.getElementById('scorecardContent');
+  if (!roundId) {
+    content.innerHTML = `<div class="empty-state"><div class="es-icon">📋</div><div class="es-title">Select a round</div></div>`;
+    return;
+  }
+  const holes = state.holeData[roundId] || {};
+  const round = state.rounds.find(r => r.id === roundId);
+  if (!round || Object.keys(holes).length === 0) {
+    content.innerHTML = `<div class="empty-state"><div class="es-icon">📋</div><div class="es-title">No data</div></div>`;
+    return;
+  }
+
+  let html = `<div class="section-label">${round.course} — ${formatDate(round.date)}</div>`;
+  html += `<div class="scorecard-table">
+    <div class="sc-thead">
+      <div>#</div>
+      <div>Par</div>
+      <div>Score</div>
+      <div>Putts</div>
+      <div>FW</div>
+      <div>GIR</div>
+    </div>
+  `;
+
+  let totScore = 0, totPar = 0, totPutts = 0, totFW = 0, totFWAtt = 0, totGIR = 0;
+
+  for (let i = 1; i <= round.holes; i++) {
+    const h = holes[i];
+    if (!h) {
+      html += `<div class="sc-row"><div>${i}</div><div>${DEFAULT_COURSE.pars[i-1]}</div><div>—</div><div>—</div><div>—</div><div>—</div></div>`;
+      continue;
+    }
+    const vp = h.score - h.par;
+    let cls = 'par';
+    if (vp <= -2) cls = 'eagle';
+    else if (vp === -1) cls = 'birdie';
+    else if (vp === 1) cls = 'bogey';
+    else if (vp >= 2) cls = 'double';
+
+    const puttCount = h.putts?.length || 0;
+    const fw = h.par >= 4 ? (h.teeResult === 'FW' ? '✓' : '✕') : '—';
+    const isGIR = puttCount > 0 && puttCount <= (h.score - h.par + 2);
+    const gir = isGIR ? '✓' : '✕';
+
+    totScore += h.score;
+    totPar += h.par;
+    totPutts += puttCount;
+    if (h.par >= 4) { totFWAtt++; if (h.teeResult === 'FW') totFW++; }
+    if (isGIR) totGIR++;
+
+    html += `
+      <div class="sc-row">
+        <div>${i}</div>
+        <div>${h.par}</div>
+        <div class="sc-score"><div class="sc-score-inner ${cls}">${h.score}</div></div>
+        <div>${puttCount || '—'}</div>
+        <div style="color:${fw==='✓'?'var(--accent)':fw==='✕'?'var(--red)':'var(--text3)'}">${fw}</div>
+        <div style="color:${gir==='✓'?'var(--accent)':'var(--red)'}">${gir}</div>
+      </div>
+    `;
+  }
+
+  const vpTot = totScore - totPar;
+  html += `
+    <div class="sc-row" style="background:var(--surface3);border-top:1px solid var(--border2)">
+      <div style="color:var(--text2);font-size:10px;">TOT</div>
+      <div style="color:var(--text)">${totPar}</div>
+      <div class="sc-score"><div class="sc-score-inner ${vpTot===0?'par':vpTot<0?'birdie':'bogey'}">${totScore}</div></div>
+      <div style="color:var(--text)">${totPutts}</div>
+      <div style="color:var(--text)">${totFWAtt ? Math.round(totFW/totFWAtt*100)+'%' : '—'}</div>
+      <div style="color:var(--text)">${Object.keys(holes).length ? Math.round(totGIR/Object.keys(holes).length*100)+'%' : '—'}</div>
+    </div>
+  `;
+
+  html += '</div>';
+  content.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+function getActiveRound() {
+  return state.rounds.find(r => r.id === state.activeRoundId);
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('ko-KR', {month:'short', day:'numeric', year:'2-digit'});
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function renderAll() {
+  renderHome();
+  if (state.activeRoundId) {
+    buildHoleNav();
+    if (state.activeHole) loadHole(state.activeHole);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+document.getElementById('roundDate').value = new Date().toISOString().split('T')[0];
+
+loadState();
+</script>
+</body>
+</html>
