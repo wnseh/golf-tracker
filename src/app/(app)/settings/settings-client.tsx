@@ -201,6 +201,18 @@ export function SettingsClient({ initialClubs, userId }: SettingsClientProps) {
         {saving ? 'Saving...' : 'Save Clubs'}
       </button>
 
+      {/* Sign Out */}
+      <div className="border-t border-border pt-6">
+        <form action="/api/auth/signout" method="post">
+          <button
+            type="submit"
+            className="w-full rounded-xl border-2 border-red bg-red-dim py-3.5 text-sm font-bold text-red transition hover:opacity-90"
+          >
+            Sign Out
+          </button>
+        </form>
+      </div>
+
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-lg bg-surface2 border border-border px-4 py-2.5 text-sm font-medium text-text shadow-lg">
