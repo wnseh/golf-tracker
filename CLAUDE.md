@@ -27,9 +27,10 @@ src/app/
 ├── (app)/round/[id]/
 │   ├── page.tsx                # 서버 컴포넌트 (fetch round + holes + clubs + migration)
 │   └── hole-input.tsx          # 클라이언트 오케스트레이터 (useReducer + 캐시 + GIR/putts)
+├── (app)/round-list.tsx          # 라운드 리스트 + 편집/삭제 모달 (Phase 2c)
 ├── (app)/settings/
 │   ├── page.tsx                # 설정 서버 컴포넌트 (클럽 fetch)
-│   └── settings-client.tsx     # 클럽 에디터 (추가/삭제/저장)
+│   └── settings-client.tsx     # 클럽 에디터 + Sign Out (Phase 2c)
 ├── (app)/analysis/page.tsx     # Placeholder (Coming Soon)
 ├── (app)/card/page.tsx         # Placeholder (Coming Soon)
 ├── api/auth/signout/route.ts   # 로그아웃 API
@@ -125,6 +126,17 @@ user_clubs  (id, user_id, club_name, carry_m, total_m, sort_order)
 - [x] 드래그 스크롤 훅 (hole-nav)
 - [x] 구 데이터 마이그레이션 레이어 (shape split, slope array, speed numeric)
 - [x] Placeholder 페이지 (Analysis, Card — Coming Soon)
+
+### Phase 2c — UI 개선 + 기능 보완 ✅ 완료
+**[fix]**
+- [x] Step 1: Desktop 홀 네비게이션 클릭 버그 + 스크롤 개선
+- [x] Step 2: 홈 설정 버튼 정리 + Sign Out → Settings 이동
+**[feat]**
+- [x] Step 3: Collapsible 섹션 하단 접기 버튼
+- [x] Step 4: 클럽 선택 시 target 거리 자동 입력
+- [x] Step 5: 라운드 리스트 편집/삭제 메뉴
+**[design]**
+- [x] Step 6: InfoTooltip 디자인 개선
 
 ### Phase 3 — 분석 화면 (다음)
 - [ ] 라운드 분석 페이지 (`round/[id]/stats/page.tsx`)

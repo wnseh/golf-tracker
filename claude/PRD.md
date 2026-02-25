@@ -442,20 +442,45 @@ Tailwind v4 `@theme inline` 방식으로 `globals.css`에 등록 완료:
 - [x] `TeeRoutine.landing`에 `'HZ'` 추가, `learnType`을 `'gain confidence' | 'lesson' | 'note'`로 변경
 - [x] `LANDING_OPTIONS`에 `'HZ'` 추가, `LEARN_TYPES`를 `'gain confidence' | 'lesson' | 'note'`로 변경
 
-### Phase 2b — UI 개선 + 설정 + 하단 네비 (진행중)
-- [ ] Shape 2필드 분리: StartLineVal(Pull/Str/Push) + CurveVal(D-Hook~Shank) — 타입/상수/UI 전부 변경
-- [ ] 구 데이터 마이그레이션 레이어 (`src/lib/migration.ts`) — ShapeVal→StartLine+Curve, slope→배열, preSpeed→숫자
-- [ ] DB: `user_clubs` 테이블 (`002_user_clubs.sql`) — 유저별 클럽/캐리/토탈 거리
-- [ ] 설정 페이지 (`/settings`) — 클럽 관리, 성별별 디폴트 거리, 웨지 도수 피커
-- [ ] Bottom Nav 5탭 (Home/Input/Analysis/Card/Setting) + Placeholder 페이지
-- [ ] 퍼팅: 거리 30m, 그린스피드 슬라이더(2.0~4.0, 0.1단위)
-- [ ] Slope 중복선택 (MultiToggle: `string[] | null`)
-- [ ] 디폴트 선택값: wind=none/calm, quality=clean, traj=mid, shape=straight/straight 등
-- [ ] Info 툴팁: Intent 설명, 퍼팅 Read 설명, Shape 설명
-- [ ] Score GIR/퍼팅수 표시 (자동계산 + 수동 오버라이드)
-- [ ] 홀 네비/shape 드래그 스크롤 (`useDragScroll` 훅)
-- [ ] Par 3: 티샷 클럽 전체 표시 (유저 설정 기준)
-- [ ] 홈 페이지 ⚙️ 설정 링크
+### Phase 2b — UI 개선 + 설정 + 하단 네비 ✅ 완료
+- [x] Shape 2필드 분리: StartLineVal(Pull/Str/Push) + CurveVal(D-Hook~Shank) — 타입/상수/UI 전부 변경
+- [x] 구 데이터 마이그레이션 레이어 (`src/lib/migration.ts`) — ShapeVal→StartLine+Curve, slope→배열, preSpeed→숫자
+- [x] DB: `user_clubs` 테이블 (`002_user_clubs.sql`) — 유저별 클럽/캐리/토탈 거리
+- [x] 설정 페이지 (`/settings`) — 클럽 관리, 성별별 디폴트 거리, 웨지 도수 피커
+- [x] Bottom Nav 5탭 (Home/Input/Analysis/Card/Setting) + Placeholder 페이지
+- [x] 퍼팅: 거리 30m, 그린스피드 슬라이더(2.0~4.0, 0.1단위)
+- [x] Slope 중복선택 (MultiToggle: `string[] | null`)
+- [x] 디폴트 선택값: wind=none/calm, quality=clean, traj=mid, shape=straight/straight 등
+- [x] Info 툴팁: Intent 설명, 퍼팅 Read 설명, Shape 설명
+- [x] Score GIR/퍼팅수 표시 (자동계산 + 수동 오버라이드)
+- [x] 홀 네비/shape 드래그 스크롤 (`useDragScroll` 훅)
+- [x] Par 3: 티샷 클럽 전체 표시 (유저 설정 기준)
+- [x] 홈 페이지 ⚙️ 설정 링크
+
+### Phase 2c — UI 개선 + 기능 보완 ✅ 완료
+**[fix]**
+- [x] Step 1: Desktop 홀 네비게이션 클릭 버그 + 스크롤 개선
+  - `use-drag-scroll` drag vs click 구분 (threshold 5px 추가)
+  - pointer capture를 즉시→threshold 이후로 지연
+- [x] Step 2: 홈 설정 버튼 정리 + Sign Out → Settings 이동
+  - 홈 헤더 톱니바퀴 제거 (BottomNav에 Settings 탭 있음)
+  - Settings 페이지 최하단에 Sign Out 버튼 추가 (테두리 + 위험색)
+
+**[feat]**
+- [x] Step 3: Collapsible 섹션 하단 접기 버튼
+  - CollapsibleSection, RoutineBlock 열렸을 때 하단 ▲ chevron 추가
+- [x] Step 4: 클럽 선택 시 target 거리 자동 입력
+  - Tee Shot / Ground Shot 클럽 선택 → `total_m` 자동 입력 (빈 필드만)
+  - ARG, Recovery → 디폴트 50m
+- [x] Step 5: 라운드 리스트 편집/삭제 메뉴
+  - 홈 라운드 카드에 `...` 아이콘 → 편집 모달 (Cancel/Update/Delete)
+  - 새 `round-list.tsx` 클라이언트 컴포넌트, Delete 2단계 확인
+
+**[design]**
+- [x] Step 6: InfoTooltip 디자인 개선
+  - children 기반 리치 콘텐츠 (text→ReactNode)
+  - Shot Information: 카드형, 색상 dot, intent별 색상 볼드
+  - Putt Read: font-mono 키, R0=초록/R±=노랑/R±±=빨강 색상 구분
 
 ### Phase 3 — 분석 화면 (다음)
 - [ ] 라운드 분석 페이지
