@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { BottomNav } from '@/components/ui/bottom-nav';
 
 export default async function AppLayout({
   children,
@@ -26,7 +27,8 @@ export default async function AppLayout({
           </button>
         </form>
       </header>
-      <main className="mx-auto max-w-lg px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-lg px-4 py-6 pb-20">{children}</main>
+      <BottomNav />
     </div>
   );
 }
