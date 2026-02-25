@@ -37,8 +37,17 @@ export function RoutineBlock({ type, title, defaultOpen = false, children }: Rou
         </svg>
       </button>
       {open && (
-        <div className="px-3 pb-3 border-t border-border pt-3 space-y-3">
+        <div className="px-3 pb-1.5 border-t border-border pt-3 space-y-3">
           {children}
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="w-full flex items-center justify-center py-0.5 text-text3 hover:text-text2 transition"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
         </div>
       )}
     </div>
