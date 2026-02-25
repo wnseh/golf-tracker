@@ -77,7 +77,14 @@ export function TeeShot({
             <label className="text-xs text-text2 mb-1 block">Club</label>
             <select
               value={teeClub}
-              onChange={(e) => onClubChange(e.target.value)}
+              onChange={(e) => {
+                const club = e.target.value;
+                onClubChange(club);
+                if (club && !teeCarry) {
+                  const uc = userClubs.find((c) => c.clubName === club);
+                  if (uc?.totalM) onCarryChange(String(uc.totalM));
+                }
+              }}
               className="w-full rounded-lg border border-border bg-surface3 px-3 py-2 text-sm text-text focus:border-accent focus:outline-none"
             >
               <option value="">—</option>

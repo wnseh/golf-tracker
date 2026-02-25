@@ -96,7 +96,29 @@ export function ShotCard({ index, shot, userClubs, onChange, onRemove }: ShotCar
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           <span className="text-xs font-semibold text-text2">SHOT {index + 1}</span>
-          <InfoTooltip text="Approach: 그린 공략 ≥50m\nARG: 그린 공략 <50m\nLayup: 전략적 레이업\nRecovery: 탈출" />
+          <InfoTooltip>
+            <div className="px-3 py-2.5 space-y-2">
+              <p className="text-[10px] uppercase tracking-wider text-text3 font-medium">Shot Types</p>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-start gap-2">
+                  <span className="shrink-0 w-1.5 h-1.5 mt-1.5 rounded-full bg-yellow" />
+                  <p><span className="font-semibold text-yellow">Approach</span> <span className="text-text2">그린 공략 ≥50m</span></p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="shrink-0 w-1.5 h-1.5 mt-1.5 rounded-full bg-red" />
+                  <p><span className="font-semibold text-red">ARG</span> <span className="text-text2">그린 공략 &lt;50m</span></p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="shrink-0 w-1.5 h-1.5 mt-1.5 rounded-full bg-blue" />
+                  <p><span className="font-semibold text-blue">Layup</span> <span className="text-text2">전략적 레이업</span></p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="shrink-0 w-1.5 h-1.5 mt-1.5 rounded-full bg-purple" />
+                  <p><span className="font-semibold text-purple">Recovery</span> <span className="text-text2">탈출</span></p>
+                </div>
+              </div>
+            </div>
+          </InfoTooltip>
         </div>
         <button type="button" onClick={onRemove} className="text-text3 hover:text-red text-sm">✕</button>
       </div>
@@ -174,7 +196,19 @@ export function ShotCard({ index, shot, userClubs, onChange, onRemove }: ShotCar
             <label className="text-xs text-text2 mb-1 block">Club</label>
             <select
               value={shot.club}
-              onChange={(e) => onChange({ club: e.target.value })}
+              onChange={(e) => {
+                const club = e.target.value;
+                const patch: Partial<StgShot> = { club };
+                if (club && !shot.dist) {
+                  if (shot.intent === 'arg' || shot.intent === 'recovery') {
+                    patch.dist = '50';
+                  } else {
+                    const uc = userClubs.find((c) => c.clubName === club);
+                    if (uc?.totalM) patch.dist = String(uc.totalM);
+                  }
+                }
+                onChange(patch);
+              }}
               className="w-full rounded-lg border border-border bg-surface3 px-3 py-2 text-sm text-text focus:border-accent focus:outline-none"
             >
               <option value="">—</option>
