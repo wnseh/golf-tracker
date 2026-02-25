@@ -16,6 +16,12 @@
   --color-red: #f87171;
   --color-purple: #a78bfa;
 
+  --color-accent-dim: rgba(74, 222, 128, 0.12);
+  --color-red-dim: rgba(248, 113, 113, 0.12);
+  --color-blue-dim: rgba(96, 165, 250, 0.12);
+  --color-yellow-dim: rgba(251, 191, 36, 0.12);
+  --color-purple-dim: rgba(167, 139, 250, 0.12);
+
   --font-sans: 'DM Sans', sans-serif;
   --font-mono: 'DM Mono', monospace;
 }

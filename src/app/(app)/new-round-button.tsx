@@ -11,6 +11,7 @@ export function NewRoundButton() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [course, setCourse] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -22,32 +23,44 @@ export function NewRoundButton() {
   async function handleCreate() {
     if (!course.trim()) return;
     setLoading(true);
+    setError(null);
 
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const supabase = createClient();
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
-    const { data, error } = await supabase
-      .from('rounds')
-      .insert({
-        user_id: user.id,
-        course: course.trim(),
-        date,
-        tee,
-        holes,
-        handicap: handicap ? parseFloat(handicap) : null,
-        rating: rating ? parseFloat(rating) : null,
-      })
-      .select('id')
-      .single();
+      if (authErr || !user) {
+        setError(authErr?.message ?? 'Not authenticated. Please sign in again.');
+        setLoading(false);
+        return;
+      }
 
-    if (error) {
+      const { data, error: insertErr } = await supabase
+        .from('rounds')
+        .insert({
+          user_id: user.id,
+          course: course.trim(),
+          date,
+          tee,
+          holes,
+          handicap: handicap ? parseFloat(handicap) : null,
+          rating: rating ? parseFloat(rating) : null,
+        })
+        .select('id')
+        .single();
+
+      if (insertErr || !data) {
+        setError(insertErr?.message ?? 'Failed to create round.');
+        setLoading(false);
+        return;
+      }
+
+      router.push(`/round/${data.id}`);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unexpected error');
       setLoading(false);
-      return;
     }
-
-    router.push(`/round/${data.id}`);
-    router.refresh();
   }
 
   if (!open) {
@@ -152,9 +165,13 @@ export function NewRoundButton() {
           </div>
         </div>
 
+        {error && (
+          <p className="text-sm text-red bg-red-dim rounded-lg px-3 py-2">{error}</p>
+        )}
+
         <div className="flex gap-3 pt-2">
           <button
-            onClick={() => setOpen(false)}
+            onClick={() => { setOpen(false); setError(null); }}
             className="flex-1 rounded-lg border border-border py-2.5 text-sm text-text2 transition hover:border-border2"
           >
             Cancel
