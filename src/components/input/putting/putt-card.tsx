@@ -116,7 +116,33 @@ export function PuttCard({ index, putt, onChange, onRemove }: PuttCardProps) {
         {/* READ */}
         <div className="flex items-center mt-3 mb-2">
           <p className="text-[10px] uppercase tracking-wider text-text3 font-medium">Read</p>
-          <InfoTooltip text="R-- 훨씬 덜 꺾임\nR- 덜 꺾임\nR0 정확\nR+ 더 꺾임\nR++ 훨씬 더 꺾임" />
+          <InfoTooltip>
+            <div className="px-3 py-2.5 space-y-2">
+              <p className="text-[10px] uppercase tracking-wider text-text3 font-medium">Post-Putt Read</p>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 w-8 font-mono font-semibold text-red">R--</span>
+                  <span className="text-text2">훨씬 덜 꺾임</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 w-8 font-mono font-semibold text-yellow">R-</span>
+                  <span className="text-text2">덜 꺾임</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 w-8 font-mono font-semibold text-accent">R0</span>
+                  <span className="text-text2">정확</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 w-8 font-mono font-semibold text-yellow">R+</span>
+                  <span className="text-text2">더 꺾임</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 w-8 font-mono font-semibold text-red">R++</span>
+                  <span className="text-text2">훨씬 더 꺾임</span>
+                </div>
+              </div>
+            </div>
+          </InfoTooltip>
         </div>
         <ReadRow value={putt.read} onChange={(v) => onChange({ read: v })} />
 

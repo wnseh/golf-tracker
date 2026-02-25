@@ -3,10 +3,10 @@
 import { useState, useRef, useEffect } from 'react';
 
 interface InfoTooltipProps {
-  text: string;
+  children: React.ReactNode;
 }
 
-export function InfoTooltip({ text }: InfoTooltipProps) {
+export function InfoTooltip({ children }: InfoTooltipProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -31,8 +31,8 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
         i
       </button>
       {open && (
-        <div className="absolute left-0 top-6 z-50 w-56 rounded-lg border border-border bg-surface2 px-3 py-2 text-xs text-text2 shadow-lg whitespace-pre-line">
-          {text}
+        <div className="absolute left-0 top-6 z-50 w-64 rounded-xl border border-border bg-surface2 shadow-xl overflow-hidden">
+          {children}
         </div>
       )}
     </div>
