@@ -16,16 +16,8 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-dvh">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
+      <header className="border-b border-border px-4 py-3">
         <h1 className="text-lg font-bold text-accent">Golf Tracker</h1>
-        <form action="/api/auth/signout" method="post">
-          <button
-            type="submit"
-            className="text-sm text-text2 hover:text-text transition"
-          >
-            Sign Out
-          </button>
-        </form>
       </header>
       <main className="mx-auto max-w-lg px-4 py-6 pb-20">{children}</main>
       <BottomNav />
