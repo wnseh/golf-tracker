@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import type { UserClub } from '@/lib/types';
-import { ALL_CLUB_OPTIONS, WEDGE_DEGREES, DEFAULT_CLUBS } from '@/lib/constants';
+import type { UserClub, InputMode } from '@/lib/types';
+import { ALL_CLUB_OPTIONS, WEDGE_DEGREES, DEFAULT_CLUBS, MODE_OPTIONS, MODE_LABELS, MODE_DESCRIPTIONS } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
 
 interface SettingsClientProps {
   initialClubs: UserClub[];
   userId: string;
+  defaultMode: InputMode;
 }
 
 interface ClubRow {
@@ -16,7 +17,7 @@ interface ClubRow {
   totalM: number;
 }
 
-export function SettingsClient({ initialClubs, userId }: SettingsClientProps) {
+export function SettingsClient({ initialClubs, userId, defaultMode: initialMode }: SettingsClientProps) {
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const [clubs, setClubs] = useState<ClubRow[]>(
     initialClubs.length > 0
@@ -26,6 +27,7 @@ export function SettingsClient({ initialClubs, userId }: SettingsClientProps) {
   const [newClub, setNewClub] = useState('');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [defaultMode, setDefaultMode] = useState<InputMode>(initialMode);
 
   function addClub() {
     if (!newClub || clubs.some((c) => c.clubName === newClub)) return;
@@ -60,10 +62,8 @@ export function SettingsClient({ initialClubs, userId }: SettingsClientProps) {
     try {
       const supabase = createClient();
 
-      // Delete existing clubs
+      // Save clubs
       await supabase.from('user_clubs').delete().eq('user_id', userId);
-
-      // Insert all current clubs
       if (clubs.length > 0) {
         const rows = clubs.map((c, i) => ({
           user_id: userId,
@@ -72,13 +72,27 @@ export function SettingsClient({ initialClubs, userId }: SettingsClientProps) {
           total_m: c.totalM,
           sort_order: i,
         }));
-
         const { error } = await supabase.from('user_clubs').insert(rows);
         if (error) {
           setToast('Save failed');
           setTimeout(() => setToast(null), 2000);
           return;
         }
+      }
+
+      // Save user settings (upsert)
+      const { error: settingsErr } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: userId,
+          default_mode: defaultMode,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+
+      if (settingsErr) {
+        setToast('Settings save failed');
+        setTimeout(() => setToast(null), 2000);
+        return;
       }
 
       setToast('Saved!');
@@ -98,6 +112,28 @@ export function SettingsClient({ initialClubs, userId }: SettingsClientProps) {
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold">Settings</h2>
+
+      {/* Default Mode */}
+      <div>
+        <p className="text-sm font-medium text-text2 mb-2">Default Input Mode</p>
+        <div className="flex gap-2">
+          {MODE_OPTIONS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setDefaultMode(m)}
+              className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${
+                defaultMode === m
+                  ? 'border-accent bg-accent-dim text-accent'
+                  : 'border-border bg-surface3 text-text2 hover:border-border2'
+              }`}
+            >
+              <div>{MODE_LABELS[m]}</div>
+              <div className="text-[10px] mt-0.5 opacity-70">{MODE_DESCRIPTIONS[m]}</div>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Gender */}
       <div>
@@ -198,7 +234,7 @@ export function SettingsClient({ initialClubs, userId }: SettingsClientProps) {
         disabled={saving}
         className="w-full rounded-xl bg-accent py-3.5 text-sm font-bold text-bg transition hover:opacity-90 disabled:opacity-50"
       >
-        {saving ? 'Saving...' : 'Save Clubs'}
+        {saving ? 'Saving...' : 'Save Settings'}
       </button>
 
       {/* Sign Out */}

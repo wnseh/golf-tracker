@@ -26,8 +26,6 @@ export function PuttCard({ index, putt, onChange, onRemove }: PuttCardProps) {
     onChange({ dist: String(clamped) });
   }
 
-  const speedVal = putt.preSpeed ?? 3.0;
-
   return (
     <div className="rounded-xl border border-border bg-surface2 p-3 space-y-3">
       {/* Header */}
@@ -68,43 +66,10 @@ export function PuttCard({ index, putt, onChange, onRemove }: PuttCardProps) {
         <p className="text-[10px] uppercase tracking-wider text-text3 font-medium mt-3 mb-2">Break</p>
         <MiniToggle options={PUTT_BREAKS} value={putt.break} onChange={(v) => onChange({ break: v })} />
 
-        {/* GREEN SPEED — slider */}
-        <p className="text-[10px] uppercase tracking-wider text-text3 font-medium mt-3 mb-2">Green Speed</p>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={2.0} max={4.0} step={0.1}
-            value={speedVal}
-            onChange={(e) => onChange({ preSpeed: parseFloat(e.target.value) })}
-            className="flex-1 h-1 rounded bg-border2 accent-accent cursor-pointer"
-          />
-          <span className="text-sm font-mono text-text2 w-8 text-right">{speedVal.toFixed(1)}</span>
-        </div>
       </RoutineBlock>
 
       {/* POST */}
       <RoutineBlock type="post" title="Result">
-        {/* OUTCOME */}
-        <p className="text-[10px] uppercase tracking-wider text-text3 font-medium mb-2">Result</p>
-        <div className="flex gap-2 mb-4">
-          {(['made', 'missed'] as const).map((o) => (
-            <button
-              key={o}
-              type="button"
-              onClick={() => onChange({ outcome: o })}
-              className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${
-                putt.outcome === o
-                  ? o === 'made'
-                    ? 'border-accent bg-accent-dim text-accent'
-                    : 'border-red bg-red-dim text-red'
-                  : 'border-border bg-surface3 text-text2 hover:border-border2'
-              }`}
-            >
-              {o === 'made' ? 'Made' : 'Missed'}
-            </button>
-          ))}
-        </div>
-
         {/* SPEED */}
         <p className="text-[10px] uppercase tracking-wider text-text3 font-medium mb-2">Speed</p>
         <MiniToggle options={PUTT_POST_SPEEDS} value={putt.postSpeed} onChange={(v) => onChange({ postSpeed: v })} />

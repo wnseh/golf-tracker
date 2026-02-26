@@ -30,6 +30,11 @@ export default async function RoundPage({ params }: PageProps) {
     handicap: roundRow.handicap,
     rating: roundRow.rating,
     holes: roundRow.holes,
+    greenSpeed: roundRow.green_speed ?? 3.0,
+    weather: roundRow.weather ?? null,
+    temperature: roundRow.temperature != null ? Number(roundRow.temperature) : null,
+    roundTime: roundRow.round_time ?? null,
+    inputMode: roundRow.input_mode ?? 'serious',
     createdAt: roundRow.created_at,
   };
 

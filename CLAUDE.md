@@ -27,18 +27,20 @@ src/app/
 ├── (app)/round/[id]/
 │   ├── page.tsx                # 서버 컴포넌트 (fetch round + holes + clubs + migration)
 │   └── hole-input.tsx          # 클라이언트 오케스트레이터 (useReducer + 캐시 + GIR/putts)
-├── (app)/round-list.tsx          # 라운드 리스트 + 편집/삭제 모달 (Phase 2c)
+├── (app)/round-list.tsx          # 라운드 리스트 + 편집/삭제 모달 + 날씨/모드 표시
 ├── (app)/settings/
-│   ├── page.tsx                # 설정 서버 컴포넌트 (클럽 fetch)
-│   └── settings-client.tsx     # 클럽 에디터 + Sign Out (Phase 2c)
+│   ├── page.tsx                # 설정 서버 컴포넌트 (클럽 + user_settings fetch)
+│   └── settings-client.tsx     # 클럽 에디터 + 기본 모드 선택 + Sign Out
 ├── (app)/analysis/page.tsx     # Placeholder (Coming Soon)
 ├── (app)/card/page.tsx         # Placeholder (Coming Soon)
 ├── api/auth/signout/route.ts   # 로그아웃 API
 src/middleware.ts               # 라우트 보호
 src/lib/
-├── types.ts                    # TypeScript 타입 (StartLineVal, CurveVal, UserClub 포함)
-├── constants.ts                # 게임 상수 + 클럽 설정 + empty-state 헬퍼 (디폴트값 적용)
+├── types.ts                    # TypeScript 타입 (InputMode, WeatherVal, UserSettings 포함)
+├── constants.ts                # 게임 상수 + 클럽 설정 + 모드/날씨/대강 상수 + empty-state 헬퍼
 ├── migration.ts                # 구 데이터 마이그레이션 (shape split, slope array, speed numeric)
+├── mode-context.tsx            # ModeContext (mode + setMode)
+├── casual-mapping.ts           # 대강 모드 → 기존 필드 매핑 헬퍼
 ├── supabase/client.ts          # 브라우저용
 └── supabase/server.ts          # 서버 컴포넌트용
 src/hooks/
@@ -57,18 +59,25 @@ src/components/
 │   └── bottom-nav.tsx          # 5탭 하단 네비게이션 (fixed)
 └── input/                      # 입력 도메인 컴포넌트
     ├── hole-nav.tsx            # 홀 선택 가로 스크롤 칩 (드래그 스크롤)
-    ├── score-input.tsx         # +/- 스테퍼 (vs par + GIR/putts 뱃지)
+    ├── score-input.tsx         # +/- 스테퍼 (STG/Putts 스테퍼 + GIR 뱃지, variant: fun/casual/serious)
+    ├── fun-mode.tsx            # 명랑 모드 (스코어 + 노트만)
     ├── tee-shot.tsx            # 티샷 섹션 (ShapeGrid, 동적 클럽, par 기반)
     ├── ground-shot/
     │   ├── index.tsx           # 그라운드샷 래퍼 (+ Add Shot, userClubs 전달)
     │   └── shot-card.tsx       # 개별 샷 카드 (ShapeGrid, MultiToggle slope, 툴팁)
     ├── putting/
     │   ├── index.tsx           # 퍼팅 래퍼 (+ Add Putt)
-    │   └── putt-card.tsx       # 개별 퍼팅 카드 (30m, 그린스피드 슬라이더, 툴팁)
+    │   └── putt-card.tsx       # 개별 퍼팅 카드 (30m, 툴팁) — Green Speed 제거됨
+    ├── casual/                  # 대강 모드 컴포넌트
+    │   ├── casual-tee-shot.tsx # 클럽 + 결과 + 방향 + 컨택트
+    │   ├── casual-ground-shot.tsx # intent + distBucket + 클럽 + 결과 + lie
+    │   └── casual-putting.tsx  # distBucket + outcome + speed + missSide
     └── notes-section.tsx       # 자유 텍스트 노트
 supabase/migrations/
 ├── 001_init.sql                # rounds + holes 테이블 + RLS
-└── 002_user_clubs.sql          # user_clubs 테이블 + RLS
+├── 002_user_clubs.sql          # user_clubs 테이블 + RLS
+├── 003_phase3a.sql             # green_speed, weather, temperature, round_time → rounds
+└── 004_phase3b.sql             # input_mode → rounds + user_settings 테이블
 ```
 
 ## 주요 규칙
@@ -81,12 +90,16 @@ supabase/migrations/
 
 ## DB 테이블 요약
 ```
-rounds      (id, user_id, course, date, tee, handicap, rating, holes)
+rounds      (id, user_id, course, date, tee, handicap, rating, holes,
+             green_speed, weather, temperature, round_time, input_mode)
 holes       (id, round_id, user_id, hole_num, par, score,
              tee_routine jsonb, stg_shots jsonb, putt_cards jsonb, notes)
 user_clubs  (id, user_id, club_name, carry_m, total_m, sort_order)
+user_settings (user_id, default_mode, updated_at)
 ```
-샷 데이터는 jsonb로 저장. Shape는 2필드 (startLine + curve). Slope는 string[]. preSpeed는 numeric(2.0~4.0).
+- 샷 데이터는 jsonb로 저장. Shape는 2필드 (startLine + curve). Slope는 string[].
+- Green Speed는 라운드 레벨 (rounds.green_speed). 퍼트카드의 preSpeed는 null로 저장.
+- input_mode: 'fun' | 'casual' | 'serious' — UI 복잡도만 결정, 동일 DB 스키마 사용.
 
 ## 현재 진행 상황
 
@@ -138,18 +151,47 @@ user_clubs  (id, user_id, club_name, carry_m, total_m, sort_order)
 **[design]**
 - [x] Step 6: InfoTooltip 디자인 개선
 
-### Phase 3 — 분석 화면 (다음)
+### Phase 3 — 모드 시스템 + 핵심 개선 ✅ 완료
+**Phase 3a — DB 변경 + 핵심 기능 개선**
+- [x] DB 마이그레이션 (green_speed, weather, temperature, round_time → rounds)
+- [x] 타입 변경 (WeatherVal, InputMode, UserSettings, Round 확장, shotsToGreenOverride)
+- [x] 상수 추가 (날씨/모드/대강 모드 상수)
+- [x] Green Speed → 라운드 레벨 이동 (퍼트카드에서 제거)
+- [x] Shots to Green 양방향 스테퍼 (ScoreInput ↔ GroundShots 자동 조정)
+- [x] Putts 양방향 스테퍼 (ScoreInput ↔ PuttCards 자동 조정)
+- [x] GIR 계산 변경 (shotsToGreen <= par-2)
+- [x] DR 자동선택 (par >= 4, 유저 DR 보유 시)
+- [x] 라운드 생성/수정에 Green Speed, Weather, Temperature 추가
+- [x] 라운드 헤더에 날씨/온도/스피드 표시
+**Phase 3b — 모드 시스템 인프라**
+- [x] DB 마이그레이션 (input_mode → rounds, user_settings 테이블)
+- [x] ModeContext (mode + setMode)
+- [x] 입력 화면 모드 토글 (명랑/대강/진지) + DB 반영
+- [x] 설정 페이지 기본 모드 선택
+- [x] 라운드 생성 모달 모드 선택
+**Phase 3c — 모드별 UI 구현**
+- [x] FunMode 컴포넌트 (스코어 + 노트만)
+- [x] CasualTeeShot (클럽 + 결과 + 방향 + 컨택트)
+- [x] CasualGroundSection (intent + distBucket + 클럽 + 결과 + lie)
+- [x] CasualPuttingSection (distBucket + outcome + speed + missSide)
+- [x] HoleInput 조건부 렌더링 (mode별 UI 분기)
+- [x] ScoreInput variant prop (fun/casual/serious)
+- [x] casual-mapping.ts (대강 UI → 기존 필드 매핑)
+
+### Phase 4 — 분석 화면 (다음)
 - [ ] 라운드 분석 페이지 (`round/[id]/stats/page.tsx`)
 - [ ] Strokes Gained 계산 로직 이식
 - [ ] 퍼팅 분석 (Read 정확도, 거리별 성공률)
 - [ ] 스코어카드 화면
 
-## 상태 관리 패턴 (Phase 2)
+## 상태 관리 패턴
 - 홀 입력: `useReducer`로 `HoleFormState` 관리 (`hole-input.tsx`)
 - 홀 캐시: `useRef<Map<number, HoleFormState>>`로 전환 시 클라이언트 보존
 - 데이터 흐름: Server Component(fetch) → Client Component(useReducer) → props down → Supabase upsert(browser client)
 - 공통 UI 컴포넌트는 모두 `value`/`onChange` props 패턴 (controlled)
 - Tailwind 동적 클래스 사용 금지 — 반드시 정적 매핑 객체 사용 (예: `intentActiveClass[intent]`)
+- 모드 시스템: `ModeContext`로 현재 모드 전파. 모드는 UI 복잡도만 결정, 데이터 모델 동일.
+- 양방향 STG/Putts: ScoreInput 스테퍼 변경 → 리듀서가 stgShots/puttCards 자동 조정, 반대도 동작
 
 ## 작업 시 참고
 - `claude/golf-tracker.html` — UI 원본 참조 (분석 화면 이식 시 활용)

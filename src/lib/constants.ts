@@ -1,7 +1,7 @@
 import type {
   StgIntent, TeeRoutine, StgShot, PuttCard, HoleFormState,
   ShapeVal, TrajVal, WindStr, WindDir, FeelVal, ReadVal, PuttFeelVal,
-  StartLineVal, CurveVal,
+  StartLineVal, CurveVal, WeatherVal, InputMode,
 } from './types';
 
 /* ── Ground-Shot metadata ────────────────────────────────── */
@@ -108,6 +108,59 @@ export const DEFAULT_CLUBS: { name: string; carryMale: number; carryFemale: numb
   { name: 'LW',  carryMale: 55,  carryFemale: 36 },
 ];
 
+/* ── Weather ────────────────────────────────────────────── */
+export const WEATHER_OPTIONS: WeatherVal[] = ['sunny', 'partly-cloudy', 'cloudy', 'rain', 'snow', 'fog'];
+export const WEATHER_LABELS: Record<WeatherVal, string> = {
+  sunny: 'Sunny', 'partly-cloudy': 'Partly Cloudy', cloudy: 'Cloudy',
+  rain: 'Rain', snow: 'Snow', fog: 'Fog',
+};
+export const WEATHER_ICONS: Record<WeatherVal, string> = {
+  sunny: '☀️', 'partly-cloudy': '⛅', cloudy: '☁️',
+  rain: '🌧️', snow: '❄️', fog: '🌫️',
+};
+
+/* ── Mode ───────────────────────────────────────────────── */
+export const MODE_OPTIONS: InputMode[] = ['fun', 'casual', 'serious'];
+export const MODE_LABELS: Record<InputMode, string> = {
+  fun: '명랑', casual: '대강', serious: '진지',
+};
+export const MODE_DESCRIPTIONS: Record<InputMode, string> = {
+  fun: '스코어만 기록',
+  casual: '간단한 샷 결과 기록',
+  serious: '프리샷/포스트샷 루틴 상세 기록',
+};
+export const MODE_COLORS: Record<InputMode, string> = {
+  fun: 'accent', casual: 'yellow', serious: 'blue',
+};
+
+/* ── Casual Mode Constants ──────────────────────────────── */
+export const CASUAL_TEE_RESULTS = ['FW', 'Rough', 'Bunker', 'Hazard', 'OB', 'Trouble'] as const;
+export const CASUAL_TEE_DIRECTIONS = ['L', 'C', 'R'] as const;
+export const CASUAL_TEE_CONTACTS = ['solid', 'mishit'] as const;
+export const CASUAL_DIST_BUCKETS: Record<string, string[]> = {
+  approach: ['<100m', '100-150m', '150-200m', '200m+'],
+  arg: ['<20m', '20-50m', '50-100m'],
+  layup: ['<150m', '150-200m', '200m+'],
+  recovery: ['<50m', '50-100m', '100m+'],
+};
+export const CASUAL_DIST_MID_VALUES: Record<string, number> = {
+  '<20m': 10, '20-50m': 35, '50-100m': 75,
+  '<50m': 25, '<100m': 75, '100-150m': 125, '150-200m': 175, '200m+': 220, '100m+': 130,
+  '<150m': 120,
+};
+export const CASUAL_GS_RESULTS: Record<string, string[]> = {
+  approach: ['GIR', 'Short', 'Long', 'Left', 'Right', 'Bunker'],
+  arg: ['Close', 'Mid', 'Long', 'Over', 'Short'],
+  layup: ['Fairway', 'Rough', 'Bunker', 'Perfect'],
+  recovery: ['Fairway', 'Rough', 'Playable', 'Still Trouble'],
+};
+export const CASUAL_LIE_SIMPLE = ['clean', 'rough', 'sand', 'bad'] as const;
+export const CASUAL_PUTT_DIST_BUCKETS = ['<2m', '2-5m', '5-10m', '10m+'] as const;
+export const CASUAL_PUTT_DIST_MID_VALUES: Record<string, number> = {
+  '<2m': 1, '2-5m': 3.5, '5-10m': 7.5, '10m+': 15,
+};
+export const CASUAL_PUTT_MISS_SIDES = ['L', 'C', 'R'] as const;
+
 /* ── Empty-state helpers (with defaults) ─────────────────── */
 export function emptyTeeRoutine(): TeeRoutine {
   return {
@@ -133,7 +186,7 @@ export function emptyStgShot(intent: StgIntent = 'approach'): StgShot {
 
 export function emptyPuttCard(): PuttCard {
   return {
-    dist: '3', slope: 'flat', break: null, preSpeed: 3.0,
+    dist: '3', slope: 'flat', break: null, preSpeed: null,
     outcome: null, postSpeed: null, startLine: null,
     read: null, feel: null, note: null,
   };
@@ -149,5 +202,6 @@ export function emptyHoleFormState(par = 4): HoleFormState {
     stgShots: [],
     puttCards: [],
     notes: '',
+    shotsToGreenOverride: null,
   };
 }

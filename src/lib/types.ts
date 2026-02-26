@@ -1,5 +1,7 @@
 export type WindDir = 'down' | 'dl' | 'dr' | 'left' | 'right' | 'ul' | 'ur' | 'into' | 'calm';
 export type WindStr = 'none' | 'weak' | 'strong' | 'gusty';
+export type WeatherVal = 'sunny' | 'partly-cloudy' | 'cloudy' | 'rain' | 'snow' | 'fog';
+export type InputMode = 'fun' | 'casual' | 'serious';
 export type ShapeVal = 'duck-hook' | 'hook' | 'pull' | 'draw' | 'straight' | 'fade' | 'push' | 'slice' | 'shank';
 export type StartLineVal = 'pull' | 'straight' | 'push';
 export type CurveVal = 'duck-hook' | 'hook' | 'draw' | 'straight' | 'fade' | 'slice' | 'shank';
@@ -94,7 +96,7 @@ export interface HoleFormState {
   stgShots:         StgShot[];
   puttCards:         PuttCard[];
   notes:            string;
-  girOverride?:     boolean | null;
+  shotsToGreenOverride: number | null;
   puttsOverride?:   number | null;
 }
 
@@ -120,5 +122,16 @@ export interface Round {
   handicap:         number | null;
   rating:           number | null;
   holes:            number;
+  greenSpeed:       number;
+  weather:          WeatherVal | null;
+  temperature:      number | null;
+  roundTime:        string | null;
+  inputMode:        InputMode;
   createdAt:        string;
+}
+
+export interface UserSettings {
+  userId:           string;
+  defaultMode:      InputMode;
+  updatedAt:        string;
 }

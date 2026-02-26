@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import type { UserClub } from '@/lib/types';
+import type { UserClub, InputMode } from '@/lib/types';
 import { SettingsClient } from './settings-client';
 
 export default async function SettingsPage() {
@@ -21,5 +21,14 @@ export default async function SettingsPage() {
     sortOrder: c.sort_order,
   }));
 
-  return <SettingsClient initialClubs={clubs} userId={user!.id} />;
+  // Fetch user settings
+  const { data: settings } = await supabase
+    .from('user_settings')
+    .select('default_mode')
+    .eq('user_id', user!.id)
+    .single();
+
+  const defaultMode: InputMode = (settings?.default_mode as InputMode) ?? 'serious';
+
+  return <SettingsClient initialClubs={clubs} userId={user!.id} defaultMode={defaultMode} />;
 }
