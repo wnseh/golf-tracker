@@ -1,4 +1,7 @@
-# Golf Tracker — Product Requirements Document
+# Golf Tracker — Product Requirements Document (Phase 1–3)
+
+> Phase 4 → `claude/phase4.md`
+> Phase 5 → `claude/phase5.md`
 
 ## 1. 프로젝트 개요
 
@@ -25,7 +28,7 @@
 | Backend/DB | Supabase | PostgreSQL + Auth + RLS |
 | 배포 | Vercel | |
 | 상태관리 | useReducer + useRef 캐시 | 홀 입력 중 로컬 상태 (Zustand/Context 불필요) |
-| PWA | 추후 추가 | Phase 3 이후 |
+| PWA | 추후 추가 | Phase 5 이후 |
 
 ---
 
@@ -276,9 +279,7 @@ src/app/
 │   └── round/
 │       └── [id]/
 │           ├── page.tsx      # 서버 컴포넌트 (fetch)   ✅
-│           ├── hole-input.tsx # 클라이언트 오케스트레이터 ✅
-│           └── stats/
-│               └── page.tsx  # 라운드 분석 (Phase 3)
+│           └── hole-input.tsx # 클라이언트 오케스트레이터 ✅
 │
 ├── api/auth/signout/
 │   └── route.ts              # 로그아웃 API           ✅
@@ -399,13 +400,10 @@ MVP HTML 파일의 input page를 그대로 이식. 3단계 모드 시스템(Phas
 - 낙관적 업데이트 (저장 중에도 UI 블로킹 없음)
 
 ### 5.4 라운드 분석
-MVP HTML의 stats page 이식:
-- 스코어 요약 (vs par, 버디/파/보기/더블 분포)
-- Strokes Gained 분석 (Tee / Approach / ARG / Putting)
-- 페어웨이 적중률
-- 퍼팅 Read 정확도 (R0 비율, R-/R+ 분포)
-- 샷 shape 분포
-- 클럽별 거리/결과 통계
+> → `claude/phase4.md` 참조
+
+### 5.5 스코어카드
+> → `claude/phase4.md` 참조
 
 ---
 
@@ -440,10 +438,7 @@ src/components/
 │   │   ├── casual-ground-shot.tsx # intent + distBucket + 클럽 + lie + 결과
 │   │   └── casual-putting.tsx    # distBucket + speed + missSide
 │   └── notes-section.tsx         # textarea 래퍼                               ✅
-└── stats/                        # Phase 4 예정
-    ├── ScoreSummary.tsx
-    ├── StrokesGained.tsx
-    └── PuttingAnalysis.tsx
+└── stats/                        # → Phase 4 (claude/phase4.md)
 ```
 
 ---
@@ -583,18 +578,7 @@ Tailwind v4 `@theme inline` 방식으로 `globals.css`에 등록 완료:
 - [x] ScoreInput variant prop (fun: 스코어만 / casual: +STG/Putts / serious: +GIR 뱃지)
 - [x] casual-mapping.ts (대강 UI → 기존 필드 매핑)
 
-### Phase 4 — 분석 화면 (다음)
-- [ ] 라운드 분석 페이지
-- [ ] Strokes Gained 계산 로직 이식
-- [ ] 퍼팅 분석 (Read 정확도, 거리별 성공률)
-- [ ] 스코어카드 화면
-
-### Phase 5 — 고도화 (이후)
-- [ ] Google / Kakao OAuth
-- [ ] 코스 DB (홀별 파/거리 커스텀 저장)
-- [ ] PWA (오프라인 입력 후 sync)
-- [ ] 라운드 공유 / 코치 뷰
-- [ ] AI 샷 패턴 분석
+> Phase 4, 5 → 별도 파일 참조
 
 ---
 

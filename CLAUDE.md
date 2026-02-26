@@ -10,7 +10,9 @@
 - **배포**: Vercel
 
 ## 핵심 참조 파일
-- `claude/PRD.md` — 전체 요구사항, DB 스키마, 컴포넌트 구조, 개발 단계
+- `claude/phase1-3.md` — Phase 1~3 요구사항, DB 스키마, 컴포넌트 구조 (완료)
+- `claude/phase4.md` — Phase 4 Scorecard & Analysis (eSG) 스펙
+- `claude/phase5.md` — Phase 5 고도화 (OAuth, PWA 등)
 - `claude/golf-tracker.html` — 완성된 UI/UX MVP. 컴포넌트 이식 시 반드시 참조
 
 ## 폴더 구조
@@ -178,11 +180,8 @@ user_settings (user_id, default_mode, updated_at)
 - [x] ScoreInput variant prop (fun/casual/serious)
 - [x] casual-mapping.ts (대강 UI → 기존 필드 매핑)
 
-### Phase 4 — 분석 화면 (다음)
-- [ ] 라운드 분석 페이지 (`round/[id]/stats/page.tsx`)
-- [ ] Strokes Gained 계산 로직 이식
-- [ ] 퍼팅 분석 (Read 정확도, 거리별 성공률)
-- [ ] 스코어카드 화면
+### Phase 4 — Scorecard & Analysis (다음)
+> 상세 스펙: `claude/phase4.md`
 
 ## 상태 관리 패턴
 - 홀 입력: `useReducer`로 `HoleFormState` 관리 (`hole-input.tsx`)
