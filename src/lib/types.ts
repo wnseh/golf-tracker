@@ -1,4 +1,6 @@
 export type WindDir = 'down' | 'dl' | 'dr' | 'left' | 'right' | 'ul' | 'ur' | 'into' | 'calm';
+export type LeaveDistBucket = 'ON' | '0-2m' | '2-5m' | '5m+' | 'PEN';
+export type PuttDistBucket = '0-1m' | '1-2m' | '2-5m' | '5-8m' | '8m+';
 export type WindStr = 'none' | 'weak' | 'strong' | 'gusty';
 export type WeatherVal = 'sunny' | 'partly-cloudy' | 'cloudy' | 'rain' | 'snow' | 'fog';
 export type InputMode = 'fun' | 'casual' | 'serious';
@@ -69,6 +71,8 @@ export interface StgShot {
   commit:           string | null;
   learnType:        string | null;
   note:             string | null;
+  // Phase 4A — eSG data
+  leaveDistBucket?: LeaveDistBucket | null;
   // deprecated — kept for migration compat
   targetShape?:     ShapeVal | null;
   resShape?:        ShapeVal | null;
@@ -76,6 +80,7 @@ export interface StgShot {
 
 export interface PuttCard {
   dist:             string | null;
+  distBucket?:      PuttDistBucket | null;   // Phase 4A — eSG data
   slope:            'flat' | 'uphill' | 'downhill' | 'up-down' | 'down-up' | null;
   break:            'straight' | 'left' | 'right' | 'double' | null;
   preSpeed:         number | null;

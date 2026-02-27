@@ -2,6 +2,7 @@ import type {
   StgIntent, TeeRoutine, StgShot, PuttCard, HoleFormState,
   ShapeVal, TrajVal, WindStr, WindDir, FeelVal, ReadVal, PuttFeelVal,
   StartLineVal, CurveVal, WeatherVal, InputMode,
+  LeaveDistBucket, PuttDistBucket,
 } from './types';
 
 /* ── Ground-Shot metadata ────────────────────────────────── */
@@ -155,9 +156,49 @@ export const CASUAL_GS_RESULTS: Record<string, string[]> = {
   recovery: ['Fairway', 'Rough', 'Playable', 'Still Trouble'],
 };
 export const CASUAL_LIE_SIMPLE = ['clean', 'rough', 'sand', 'bad'] as const;
-export const CASUAL_PUTT_DIST_BUCKETS = ['<2m', '2-5m', '5-10m', '10m+'] as const;
+
+/* ── Phase 4A: Leave / Putt distance buckets ──────────────── */
+export const LEAVE_DIST_BUCKETS: LeaveDistBucket[] = ['ON', '0-2m', '2-5m', '5m+', 'PEN'];
+export const PUTT_DIST_BUCKETS: PuttDistBucket[] = ['0-1m', '1-2m', '2-5m', '5-8m', '8m+'];
+
+/** Map a numeric putt distance (string) → PuttDistBucket */
+export function distToPuttBucket(dist: string | null): PuttDistBucket | null {
+  const n = parseFloat(dist ?? '');
+  if (isNaN(n) || n <= 0) return null;
+  if (n <= 1) return '0-1m';
+  if (n <= 2) return '1-2m';
+  if (n <= 5) return '2-5m';
+  if (n <= 8) return '5-8m';
+  return '8m+';
+}
+
+/** Auto-map casual approach result → LeaveDistBucket (null = no suggestion) */
+export function approachResultToLeaveBucket(result: string | null): LeaveDistBucket | null {
+  if (!result) return null;
+  if (result === 'GIR') return 'ON';
+  return null; // other results need manual selection
+}
+
+/** Auto-map casual ARG result → LeaveDistBucket (null = no suggestion) */
+export function argResultToLeaveBucket(result: string | null): LeaveDistBucket | null {
+  if (!result) return null;
+  if (result === 'Close') return '0-2m';
+  if (result === 'Mid') return '2-5m';
+  if (result === 'Long') return '5m+';
+  if (result === 'Still Trouble') return 'PEN';
+  return null;
+}
+
+/** Auto-map recovery result → LeaveDistBucket */
+export function recoveryResultToLeaveBucket(result: string | null): LeaveDistBucket | null {
+  if (result === 'Still Trouble') return 'PEN';
+  return null;
+}
+
+// Casual putt dist buckets updated to Phase 4 spec
+export const CASUAL_PUTT_DIST_BUCKETS: PuttDistBucket[] = PUTT_DIST_BUCKETS;
 export const CASUAL_PUTT_DIST_MID_VALUES: Record<string, number> = {
-  '<2m': 1, '2-5m': 3.5, '5-10m': 7.5, '10m+': 15,
+  '0-1m': 0.5, '1-2m': 1.5, '2-5m': 3.5, '5-8m': 6.5, '8m+': 12,
 };
 export const CASUAL_PUTT_MISS_SIDES = ['L', 'C', 'R'] as const;
 
@@ -181,12 +222,13 @@ export function emptyStgShot(intent: StgIntent = 'approach'): StgShot {
     argType: null, targetTraj: 'mid', targetStartLine: 'straight', targetCurve: 'straight',
     result: null, resTraj: 'mid', resStartLine: 'straight', resCurve: 'straight',
     feel: null, commit: null, learnType: null, note: null,
+    leaveDistBucket: null,
   };
 }
 
 export function emptyPuttCard(): PuttCard {
   return {
-    dist: '3', slope: 'flat', break: null, preSpeed: null,
+    dist: '3', distBucket: '2-5m', slope: 'flat', break: null, preSpeed: null,
     outcome: null, postSpeed: null, startLine: null,
     read: null, feel: null, note: null,
   };

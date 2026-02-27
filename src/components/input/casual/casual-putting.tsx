@@ -1,6 +1,6 @@
 'use client';
 
-import type { PuttCard } from '@/lib/types';
+import type { PuttCard, PuttDistBucket } from '@/lib/types';
 import { emptyPuttCard, CASUAL_PUTT_DIST_BUCKETS, CASUAL_PUTT_DIST_MID_VALUES, CASUAL_PUTT_MISS_SIDES, PUTT_POST_SPEEDS } from '@/lib/constants';
 import { CASUAL_PUTT_MISS_MAP } from '@/lib/casual-mapping';
 import { MiniToggle } from '@/components/ui/mini-toggle';
@@ -11,10 +11,10 @@ interface CasualPuttingSectionProps {
 }
 
 /** Find which bucket a numeric distance falls into */
-function distToBucket(dist: string | null): string | null {
+function distToBucket(dist: string | null): PuttDistBucket | null {
   const n = parseFloat(dist ?? '');
   if (isNaN(n)) return null;
-  let closestBucket = '';
+  let closestBucket: PuttDistBucket | '' = '';
   let closestDiff = Infinity;
   for (const b of CASUAL_PUTT_DIST_BUCKETS) {
     const mid = CASUAL_PUTT_DIST_MID_VALUES[b] ?? 0;
@@ -40,7 +40,7 @@ function CasualPuttCard({
   onChange: (patch: Partial<PuttCard>) => void;
   onRemove: () => void;
 }) {
-  const currentBucket = distToBucket(putt.dist);
+  const currentBucket = putt.distBucket ?? distToBucket(putt.dist);
   const casualMiss = putt.startLine ? (STARTLINE_TO_CASUAL[putt.startLine] ?? null) : null;
 
   return (
@@ -59,7 +59,7 @@ function CasualPuttCard({
           value={currentBucket}
           onChange={(v) => {
             const mid = CASUAL_PUTT_DIST_MID_VALUES[v];
-            onChange({ dist: mid ? String(mid) : null });
+            onChange({ dist: mid ? String(mid) : null, distBucket: v as PuttDistBucket });
           }}
         />
       </div>

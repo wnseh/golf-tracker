@@ -4,6 +4,7 @@ import type { PuttCard as PuttCardType, PuttFeelVal, ReadVal } from '@/lib/types
 import {
   PUTT_SLOPES, PUTT_BREAKS,
   PUTT_POST_SPEEDS, PUTT_START_LINES, PUTT_FEELS,
+  distToPuttBucket,
 } from '@/lib/constants';
 import { RoutineBlock } from '@/components/ui/routine-block';
 import { MiniToggle } from '@/components/ui/mini-toggle';
@@ -23,7 +24,7 @@ export function PuttCard({ index, putt, onChange, onRemove }: PuttCardProps) {
 
   function syncDist(val: number, _source: 'slider' | 'input') {
     const clamped = Math.min(30, Math.max(1, val));
-    onChange({ dist: String(clamped) });
+    onChange({ dist: String(clamped), distBucket: distToPuttBucket(String(clamped)) });
   }
 
   return (

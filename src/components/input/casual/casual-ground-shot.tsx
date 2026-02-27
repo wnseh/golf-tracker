@@ -1,7 +1,11 @@
 'use client';
 
-import type { StgShot, StgIntent, UserClub } from '@/lib/types';
-import { emptyStgShot, GS_META, CASUAL_DIST_BUCKETS, CASUAL_DIST_MID_VALUES, CASUAL_GS_RESULTS, CASUAL_LIE_SIMPLE } from '@/lib/constants';
+import type { StgShot, StgIntent, UserClub, LeaveDistBucket } from '@/lib/types';
+import {
+  emptyStgShot, GS_META, CASUAL_DIST_BUCKETS, CASUAL_DIST_MID_VALUES,
+  CASUAL_GS_RESULTS, CASUAL_LIE_SIMPLE, LEAVE_DIST_BUCKETS,
+  approachResultToLeaveBucket, argResultToLeaveBucket, recoveryResultToLeaveBucket,
+} from '@/lib/constants';
 import { MiniToggle } from '@/components/ui/mini-toggle';
 
 interface CasualGroundSectionProps {
@@ -31,6 +35,14 @@ function distToBucket(dist: string, intent: string): string | null {
   return closestBucket || null;
 }
 
+/** Auto-suggest leaveDistBucket from result + intent */
+function suggestLeaveBucket(intent: StgIntent, result: string | null): LeaveDistBucket | null {
+  if (intent === 'approach') return approachResultToLeaveBucket(result);
+  if (intent === 'arg') return argResultToLeaveBucket(result);
+  if (intent === 'recovery') return recoveryResultToLeaveBucket(result);
+  return null;
+}
+
 function CasualShotCard({
   index, shot, userClubs, onChange, onRemove,
 }: {
@@ -45,10 +57,21 @@ function CasualShotCard({
   const results = CASUAL_GS_RESULTS[shot.intent] ?? [];
   const currentBucket = distToBucket(shot.dist, shot.intent);
 
+  // Show leaveDistBucket for approach/arg/recovery (not layup)
+  const showLeaveBucket = shot.intent !== 'layup';
+
   // Simple club list from user clubs
   const clubNames = userClubs.length > 0
     ? userClubs.map((c) => c.clubName)
     : ['LW', 'SW', 'GW', 'AW', 'PW', '9I', '8I', '7I', '6I', '5I'];
+
+  function handleResultChange(v: string) {
+    const suggested = suggestLeaveBucket(shot.intent, v);
+    // Only auto-set if current leaveDistBucket is null/undefined or was already auto-suggested
+    const patch: Partial<StgShot> = { result: v };
+    if (suggested !== null) patch.leaveDistBucket = suggested;
+    onChange(patch);
+  }
 
   return (
     <div className="rounded-xl border border-border bg-surface2 p-3 space-y-3">
@@ -65,7 +88,7 @@ function CasualShotCard({
         options={INTENT_OPTIONS}
         labels={{ approach: 'APP', arg: 'ARG', layup: 'LAY', recovery: 'REC' }}
         value={shot.intent}
-        onChange={(v) => onChange({ intent: v })}
+        onChange={(v) => onChange({ intent: v, leaveDistBucket: null })}
       />
 
       {/* Distance bucket */}
@@ -118,9 +141,21 @@ function CasualShotCard({
         <MiniToggle
           options={results as unknown as string[]}
           value={shot.result}
-          onChange={(v) => onChange({ result: v })}
+          onChange={handleResultChange}
         />
       </div>
+
+      {/* Leave Dist Bucket (approach/arg/recovery only) */}
+      {showLeaveBucket && (
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-text3 font-medium mb-2">Leave (to pin)</p>
+          <MiniToggle
+            options={LEAVE_DIST_BUCKETS}
+            value={shot.leaveDistBucket ?? null}
+            onChange={(v) => onChange({ leaveDistBucket: v })}
+          />
+        </div>
+      )}
     </div>
   );
 }
