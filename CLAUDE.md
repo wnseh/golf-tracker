@@ -11,8 +11,9 @@
 
 ## 핵심 참조 파일
 - `claude/phase1-3.md` — Phase 1~3 요구사항, DB 스키마, 컴포넌트 구조 (완료)
-- `claude/phase4.md` — Phase 4 Scorecard & Analysis (eSG) 스펙
+- `claude/phase4.md` — Phase 4 Scorecard & Analysis (eSG) 스펙 (4A/4B/4C 완료, 4D → future-improvements.md)
 - `claude/phase5.md` — Phase 5 고도화 (OAuth, PWA 등)
+- `claude/future-improvements.md` — Phase 4D (Widgets/Pin) 및 기타 미래 기능
 - `claude/golf-tracker.html` — 완성된 UI/UX MVP. 컴포넌트 이식 시 반드시 참조
 
 ## 폴더 구조
@@ -183,21 +184,21 @@ user_settings (user_id, default_mode, updated_at)
 ### Phase 4 — Scorecard & Analysis (다음)
 > 상세 스펙: `claude/phase4.md`
 
-**Phase 4A — Data Plumbing + Casual 입력 확장**
-- [ ] StgShot.leaveDistBucket + PuttCard.distBucket 추가
-- [ ] 자동 매핑 (ARG result → leaveDistBucket, putt dist → distBucket)
-- [ ] expected_strokes 테이블 + seed
-- [ ] skill_index_snapshots 테이블 + SkillIndex v1 계산
-**Phase 4B — Scorecard (Card 탭) MVP**
-- [ ] 기간 필터 (연/월/커스텀) + 상단 요약 카드
-- [ ] 라운드 리스트 + 펼침 홀 테이블
-- [ ] Missing data → N/A + 분모/coverage
-**Phase 4C — Analysis (Analysis 탭) MVP**
-- [ ] recharts 트렌드 차트 (Score/Putts)
-- [ ] Biggest Leak 카드 (eSG 기반 + confidence/coverage)
-- [ ] round_metrics 프리컴퓨트 (on-demand + stale check)
-- [ ] Leak ranking v1 (룰 기반 action 추천)
-**Phase 4D — Widgets 추천 + Pin (MVP 제외 가능)**
+**Phase 4A — Data Plumbing + Casual 입력 확장 ✅ 완료**
+- [x] StgShot.leaveDistBucket + PuttCard.distBucket 추가
+- [x] 자동 매핑 (ARG result → leaveDistBucket, putt dist → distBucket)
+- [x] expected_strokes 테이블 + seed
+- [x] skill_index_snapshots 테이블 + SkillIndex v1 계산
+**Phase 4B — Scorecard (Card 탭) MVP ✅ 완료**
+- [x] 기간 필터 (연/월/커스텀) + 상단 요약 카드
+- [x] 라운드 리스트 + 펼침 홀 테이블
+- [x] Missing data → N/A + 분모/coverage
+**Phase 4C — Analysis (Analysis 탭) MVP ✅ 완료**
+- [x] recharts 트렌드 차트 (Score/Putts)
+- [x] Biggest Leak 카드 (eSG 기반 + confidence/coverage)
+- [x] round_metrics 프리컴퓨트 (on-demand + stale check)
+- [x] Leak ranking v1 (룰 기반 action 추천)
+**Phase 4D — Widgets 추천 + Pin → `claude/future-improvements.md` 이동**
 
 ## 상태 관리 패턴
 - 홀 입력: `useReducer`로 `HoleFormState` 관리 (`hole-input.tsx`)

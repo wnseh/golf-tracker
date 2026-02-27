@@ -1486,17 +1486,10 @@ v1 ranking 후보:
 
 ---
 
-### Phase 4D — Widgets 추천 + Pin (Optional, MVP 제외 가능)
+### Phase 4D — Widgets 추천 + Pin → **이동됨**
 
-**Goal:** Power user를 위한 대시보드 커스터마이즈.
-
-**Scope:**
-
-* 위젯 목록 정의
-* 추천 로직 (coverage/confidence 기반) 정의
-* pin 저장 (`user_dashboard_widgets`) 및 UI 구현
-
-**Decision:** Phase 4 MVP에서는 제외 가능 (우선순위 최하)
+> 상세 내용은 `claude/future-improvements.md` 참조.
+> Phase 4 MVP 범위에서 제외. Phase 4C(Analysis MVP) 완성 후 고려.
 
 ---
 
