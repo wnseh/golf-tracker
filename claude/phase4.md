@@ -1397,65 +1397,112 @@ v1 ranking 후보:
 
 ---
 
-## 4.18 Open Questions (구현 전 확인 필요)
+## 4.18 Sub-phase 실행 계획 (확정)
 
-### Q1. Sub-phasing — 스코프 분할
+### Phase 4A — Data Plumbing + Casual 입력 확장
 
-Phase 4는 Phase 3보다 스코프가 훨씬 큼. 아래처럼 나눌지 결정 필요:
+**Goal:** 수치 기반 분석이 돌아가도록 데이터 파이프라인/스키마를 먼저 완성한다.
 
-* **4a**: 타입/상수 변경 + 대강 모드 입력 UI 변경 (leaveDistBucket, distBucket) + DB 테이블 생성
-* **4b**: Scorecard 화면 (기간 필터 + 라운드 리스트 + 홀 테이블 펼침)
-* **4c**: eSG 계산 엔진 + SkillIndex + round_metrics 파이프라인
-* **4d**: Analysis 화면 (요약 + 트렌드 차트 + Biggest Leak + Action)
-* **4e**: 위젯 추천 시스템 (MVP 이후로 defer 가능)
+**Scope:**
 
-### Q2. 차트 라이브러리
+* Casual 입력 UI 확장
+  * `StgShot.leaveDistBucket` 추가 (ON / 0-2m / 2-5m / 5m+ / PEN)
+  * `PuttCard.distBucket` 추가 (0-1m / 1-2m / 2-5m / 5-8m / 8m+)
+* 자동 매핑
+  * ARG Close/Mid/Long → leaveDistBucket 자동 세팅
+  * putt dist → distBucket 자동 세팅 (있을 때)
+* Tables
+  * `expected_strokes` 생성 + seed insert
+  * `skill_index_snapshots` 생성 + SkillIndex v1 계산 (룰 기반)
+* Backfill v0 (optional but recommended)
+  * 기존 putt dist → distBucket
+  * 기존 ARG result → leaveDistBucket
 
-Trend 차트(Score/Putts line chart)를 위한 라이브러리 선택 필요:
+**Done Criteria:**
 
-* recharts (React 친화적, 사이즈 큼)
-* chart.js + react-chartjs-2 (가볍고 범용적)
-* visx (low-level, 커스텀 자유도 높음)
-* lightweight/custom SVG (의존성 최소)
+* [ ] Casual 모드 라운드 입력 시 leaveDistBucket/distBucket 저장됨
+* [ ] expected_strokes seed 조회 가능
+* [ ] 유저별 skill_index_snapshots 1개 이상 생성됨
+* [ ] Missing data는 0이 아닌 null/N/A로 유지되며 API에서 분모/coverage 제공
 
-### Q3. 위젯 추천 시스템 (4.2.3) 구체화
+---
 
-현재 모호한 부분:
+### Phase 4B — Scorecard (Card 탭) MVP
 
-* 어떤 위젯들이 존재하는지 목록이 없음
-* 추천 로직 (데이터 가용성 기준)의 구체적 규칙 없음
-* pin 상태 저장 위치 없음 (user_settings? 별도 테이블?)
-* MVP에서 빼고 v1.1로 defer할 수 있는 후보
+**Goal:** 라운드 로그(기간 필터 + 리스트 + 홀 테이블)를 신뢰 가능하게 제공한다.
 
-### Q4. round_metrics 계산 타이밍
+**Scope:**
 
-현재 홀 저장은 홀 단위 upsert. round_metrics는 언제 계산?
+* 탭 매핑: **Card 탭 = Scorecard** (`/card`)
+* 기간 필터: 연/월/커스텀 range
+* 상단 요약 카드 (기간 기준)
+  * Avg Score, Avg Putts, GIR(or On%) — 가능한 것만
+  * 표본수(라운드/홀) + coverage 노출
+* 라운드 리스트 + 펼침(홀 테이블)
+  * 홀 테이블: par/score/putts/notes 중심
+  * 데이터 없는 항목은 숨김 또는 N/A (0% 금지)
 
-* 옵션 A: 매 홀 저장마다 재계산 (부분 데이터 상태로 저장)
-* 옵션 B: "라운드 완료" 시점에만 (현재 완료 개념 없음 — 추가 필요?)
-* 옵션 C: Analysis/Scorecard 페이지 진입 시 on-demand 계산
+**Done Criteria:**
 
-### Q5. eSG_around 계산 확정
+* [ ] 기간 필터 변경 시 요약/리스트가 동기화됨
+* [ ] 미기록 데이터가 0으로 표시되지 않음 (N/A + 분모/coverage)
+* [ ] 라운드 펼침 UI가 끊김 없이 동작
 
-4.16.3 Step 4에서 2가지 방식이 병기됨. 하나로 확정 필요:
+---
 
-* 권장 v1: `around_cost = Σ(E_around_key)` → leak ranking에 사용, eSG는 baseline 대비 비교용
-* 대안: eSG_around = 0으로 두고 "strokes lost" 형태로만 표기
+### Phase 4C — Analysis (Analysis 탭) MVP: Trend + Biggest Leak
 
-추가로 `E_around_baseline_avg` 상수값이 seed 데이터에 정의되지 않음.
+**Goal:** 명랑/대강 유저에게 "가장 큰 누수(원인)"를 숫자로 보여주고, 행동 1개를 제시한다.
 
-### Q6. Leak action 추천 출처
+**Scope:**
 
-"recommended action 1개"가 필수인데 출처 미정:
+* 탭 매핑: **Analysis 탭 = Analysis** (`/analysis`)
+* 차트 라이브러리: **recharts**
+* 고정 구성 (커스터마이즈 없음)
+  * Trend 2개: Score trend / Putts per round trend
+  * Biggest Leak 카드 (필수): Leak 1위 + (옵션) 2위
+    * estimated strokes lost / round
+    * sample size + coverage + confidence (H/M/L)
+    * recommended action 1개 (룰 기반)
+* `round_metrics` 도입 (프리컴퓨트)
+  * 계산 타이밍: **on-demand + stale check**
+    * round_metrics가 없거나 `computed_at < rounds.updated_at`이면 재계산 후 upsert
+    * `rounds.updated_at` 보장 (holes upsert 시 rounds.updated_at 터치)
+* eSG/loss 계산 v1 확정
+  * Putting: `eSG_putt = expected_putts - actual_putts`
+  * Tee: penalty/trouble 기반 loss (estimated)
+  * Around: eSG로 과포장 금지, v1은 `around_cost = Σ E_around(leaveDistBucket)`를 loss로 사용
+* Leak ranking v1 (stable, 설명 가능한 룰)
+  * Tee penalty loss
+  * Putting loss (특히 8m+ / 1-2m 구간)
+  * Around cost (5m+ / PEN 비율)
 
-* 옵션 A: 하드코딩 (leak 유형별 고정 문구)
-* 옵션 B: 룰 기반 (데이터 패턴에 따라 분기)
-* 옵션 C: AI 생성 (Phase 5 범위)
+**Done Criteria:**
 
-### Q7. Scorecard/Analysis ↔ 기존 BottomNav 탭 매핑
+* [ ] Analysis 진입 시 화면이 비지 않음 (데이터 부족 시 가이드 출력)
+* [ ] Leak 수치가 단독으로 표시되지 않음 (표본/coverage/confidence 필수)
+* [ ] round_metrics가 stale check로 자동 갱신됨
+* [ ] 사용자 baseline bucket이 자동 선택되어 노출됨 ("Baseline: 11-15" 등, 핸디 용어 금지)
 
-BottomNav에 "Analysis"와 "Card" 탭이 이미 placeholder로 존재:
+---
 
-* 4.1 Scorecard 화면 = Card 탭? (`/card`)
-* 4.2 Analysis 화면 = Analysis 탭? (`/analysis`)
-* 확정 후 라우팅/네비게이션 연결
+### Phase 4D — Widgets 추천 + Pin (Optional, MVP 제외 가능)
+
+**Goal:** Power user를 위한 대시보드 커스터마이즈.
+
+**Scope:**
+
+* 위젯 목록 정의
+* 추천 로직 (coverage/confidence 기반) 정의
+* pin 저장 (`user_dashboard_widgets`) 및 UI 구현
+
+**Decision:** Phase 4 MVP에서는 제외 가능 (우선순위 최하)
+
+---
+
+## 4.19 Global Rules (Phase 4 전체 공통)
+
+* Missing data는 0이 아니라 **N/A**로 표시
+* 모든 비율/평균은 **numerator/denominator + coverage**를 동반
+* "SG"라는 단어는 v1에서 직접 사용하지 않고 **eSG(Estimated)**로만 표기
+* baseline은 공인 HI가 아니라 내부 **SkillIndex 기반 Baseline bucket**으로 표기

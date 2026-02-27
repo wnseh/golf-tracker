@@ -183,6 +183,22 @@ user_settings (user_id, default_mode, updated_at)
 ### Phase 4 — Scorecard & Analysis (다음)
 > 상세 스펙: `claude/phase4.md`
 
+**Phase 4A — Data Plumbing + Casual 입력 확장**
+- [ ] StgShot.leaveDistBucket + PuttCard.distBucket 추가
+- [ ] 자동 매핑 (ARG result → leaveDistBucket, putt dist → distBucket)
+- [ ] expected_strokes 테이블 + seed
+- [ ] skill_index_snapshots 테이블 + SkillIndex v1 계산
+**Phase 4B — Scorecard (Card 탭) MVP**
+- [ ] 기간 필터 (연/월/커스텀) + 상단 요약 카드
+- [ ] 라운드 리스트 + 펼침 홀 테이블
+- [ ] Missing data → N/A + 분모/coverage
+**Phase 4C — Analysis (Analysis 탭) MVP**
+- [ ] recharts 트렌드 차트 (Score/Putts)
+- [ ] Biggest Leak 카드 (eSG 기반 + confidence/coverage)
+- [ ] round_metrics 프리컴퓨트 (on-demand + stale check)
+- [ ] Leak ranking v1 (룰 기반 action 추천)
+**Phase 4D — Widgets 추천 + Pin (MVP 제외 가능)**
+
 ## 상태 관리 패턴
 - 홀 입력: `useReducer`로 `HoleFormState` 관리 (`hole-input.tsx`)
 - 홀 캐시: `useRef<Map<number, HoleFormState>>`로 전환 시 클라이언트 보존
