@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "playwright test",
+    "test:lib": "playwright test --project=lib",
+    "test:e2e": "playwright test --project=e2e"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -17,6 +20,7 @@
     "recharts": "^3.7.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
