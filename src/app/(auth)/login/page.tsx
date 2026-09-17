@@ -61,10 +61,11 @@ export default function LoginPage() {
         />
       </div>
 
-      {error && <p className="text-sm text-red">{error}</p>}
+      {error && <p data-testid="login-error" className="text-sm text-red">{error}</p>}
 
       <button
         type="submit"
+        data-testid="login-submit"
         disabled={loading}
         className="w-full rounded-lg bg-accent py-2.5 text-sm font-semibold text-bg transition hover:opacity-90 disabled:opacity-50"
       >

@@ -2,206 +2,107 @@
 
 import { useState, useMemo } from 'react';
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
+  ReferenceLine, ResponsiveContainer,
 } from 'recharts';
-import type { RoundMetricsData, LeakItem, BaselineBucket, ConfidenceLevel } from '@/lib/esg';
-import { rankLeaks } from '@/lib/esg';
-import type { AnalysisPageData } from './page';
+import type { RoundSummary } from '@/lib/load-rounds';
+import { periodStats, type PeriodStats } from '@/lib/stats';
+import { averageSG, SG_CATEGORIES, SG_CATEGORY_LABELS, type SgCategory, type RoundSG } from '@/lib/sg';
+import { PeriodFilter, getPeriodCutoff, type Period } from '@/components/stats/period-filter';
+import { ElliottTiles } from '@/components/stats/elliott-tiles';
 
-/* ── Types ────────────────────────────────────────────────────────────── */
+/* ── 색상: recharts는 CSS 변수를 못 읽어 globals.css 토큰을 하드코딩 ── */
+const C = {
+  accent: '#4ade80', blue: '#60a5fa', yellow: '#fbbf24', purple: '#a78bfa', red: '#f87171',
+  grid: '#2a2a2a', tick: '#555555', ref: '#a0a0a0',
+};
+const SG_COLOR: Record<SgCategory, string> = {
+  tee: C.blue, approach: C.yellow, short: C.purple, putt: C.accent,
+};
 
-type Period = 'all' | 'year' | '3months' | 'month';
-
-interface PeriodSummary {
-  roundCount: number;
-  avgScore: number | null;
-  avgPutts: number | null;
-  girRate: number | null;
-  girNum: number;
-  girDen: number;
-  puttsCoverage: number | null;
-  girCoverage: number | null;
-}
+/* ── 타입 ──────────────────────────────────────────────────── */
 
 interface TrendPoint {
-  date: string;         // short label e.g. "2/27"
-  fullDate: string;     // for tooltip e.g. "2026.02.27"
+  date: string;
   course: string;
-  scorePer18: number;
-  puttsPer18: number | null;
+  score: number;
+  riccio: number | null;
+  putts: number | null;
 }
 
-/* ── Constants ────────────────────────────────────────────────────────── */
+/* ── 서브 컴포넌트 ────────────────────────────────────────── */
 
-const PERIOD_LABELS: Record<Period, string> = {
-  all: '전체',
-  year: '올해',
-  '3months': '3개월',
-  month: '이번달',
-};
-const PERIOD_ORDER: Period[] = ['all', 'year', '3months', 'month'];
-
-const confidenceColors: Record<ConfidenceLevel, string> = {
-  High: 'text-accent',
-  Medium: 'text-yellow',
-  Low: 'text-red',
-};
-
-const confidenceBg: Record<ConfidenceLevel, string> = {
-  High: 'bg-accent-dim',
-  Medium: 'bg-yellow-dim',
-  Low: 'bg-red-dim',
-};
-
-/* ── Helpers ──────────────────────────────────────────────────────────── */
-
-function getPeriodCutoff(period: Period): Date | null {
-  const now = new Date();
-  if (period === 'all') return null;
-  if (period === 'year') return new Date(now.getFullYear(), 0, 1);
-  if (period === '3months') {
-    const d = new Date(now);
-    d.setMonth(d.getMonth() - 3);
-    return d;
-  }
-  return new Date(now.getFullYear(), now.getMonth(), 1);
-}
-
-function fmtShortDate(isoDate: string): string {
-  const d = new Date(isoDate);
+function fmtShort(iso: string) {
+  const d = new Date(iso);
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
-
-function fmtFullDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+function signed(v: number, digits = 1) {
+  return `${v > 0 ? '+' : ''}${v.toFixed(digits)}`;
 }
 
-/* ── Sub-components ───────────────────────────────────────────────────── */
+function RiccioCard({ stats }: { stats: PeriodStats }) {
+  const r = stats.riccio;
+  if (!r || stats.avgScore === null) {
+    return (
+      <div data-testid="riccio-card" data-state="empty" className="rounded-xl border border-border bg-surface p-4">
+        <p className="text-sm font-semibold">Riccio&apos;s Rule</p>
+        <p className="mt-1 text-xs text-text3">GIR이 기록된 홀이 없어 기대 스코어를 계산할 수 없습니다.</p>
+      </div>
+    );
+  }
+  const gap = stats.avgScore - r.expScore;
+  const puttGap = r.putts18 !== null ? r.putts18 - r.expPutts : null;
 
-function PeriodFilter({
-  period,
-  onChange,
-}: {
-  period: Period;
-  onChange: (p: Period) => void;
-}) {
-  return (
-    <div className="flex gap-2 flex-wrap">
-      {PERIOD_ORDER.map((p) => (
-        <button
-          key={p}
-          type="button"
-          onClick={() => onChange(p)}
-          className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-            period === p
-              ? 'bg-accent text-bg'
-              : 'bg-surface2 text-text2 hover:bg-surface border border-border'
-          }`}
-        >
-          {PERIOD_LABELS[p]}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function SummaryCards({ summary }: { summary: PeriodSummary }) {
-  const fmtScore = summary.avgScore != null ? summary.avgScore.toFixed(1) : 'N/A';
-  const fmtPutts = summary.avgPutts != null ? summary.avgPutts.toFixed(1) : 'N/A';
-  const fmtGir =
-    summary.girRate != null ? `${(summary.girRate * 100).toFixed(0)}%` : 'N/A';
+  let reading: string;
+  if (Math.abs(gap) < 1.5) reading = 'GIR 수준에 맞는 스코어입니다. 스코어를 더 줄이려면 GIR 자체를 올려야 합니다.';
+  else if (gap > 0) reading = 'GIR에 비해 스코어가 높습니다. 숏게임·퍼팅에서 타수가 새고 있을 가능성이 큽니다.';
+  else reading = 'GIR에 비해 스코어가 낮습니다. 숏게임·퍼팅이 강점입니다. 티투그린을 올리면 더 내려갑니다.';
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
-      <div className="grid grid-cols-3 divide-x divide-border">
-        <div className="pr-4 text-center">
-          <p className="text-[10px] uppercase tracking-wide text-text3">Avg Score</p>
-          <p className="mt-1 text-xl font-mono font-semibold text-text">{fmtScore}</p>
-          <p className="mt-0.5 text-[10px] text-text3">{summary.roundCount}라운드</p>
+    <div data-testid="riccio-card" data-state="ready" className="rounded-xl border border-border bg-surface p-4 space-y-3">
+      <div className="flex items-baseline justify-between">
+        <p className="text-sm font-semibold">Riccio&apos;s Rule</p>
+        <p className="text-[10px] text-text3">Score ≈ 95 − 2 × GIR</p>
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-text3">GIR / 18홀</p>
+          <p data-testid="riccio-gir18" className="font-mono text-lg font-semibold">{r.gir18.toFixed(1)}</p>
         </div>
-        <div className="px-4 text-center">
-          <p className="text-[10px] uppercase tracking-wide text-text3">Avg Putts</p>
-          <p className="mt-1 text-xl font-mono font-semibold text-text">{fmtPutts}</p>
-          <p className="mt-0.5 text-[10px] text-text3">
-            {summary.puttsCoverage != null
-              ? `${Math.round(summary.puttsCoverage * 100)}% 커버리지`
-              : '데이터 없음'}
-          </p>
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-text3">기대 스코어</p>
+          <p data-testid="riccio-exp-score" className="font-mono text-lg font-semibold">{r.expScore.toFixed(1)}</p>
         </div>
-        <div className="pl-4 text-center">
-          <p className="text-[10px] uppercase tracking-wide text-text3">GIR</p>
-          <p className="mt-1 text-xl font-mono font-semibold text-text">{fmtGir}</p>
-          <p className="mt-0.5 text-[10px] text-text3">
-            {summary.girDen > 0
-              ? `${summary.girNum}/${summary.girDen} 홀`
-              : '데이터 없음'}
-          </p>
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-text3">실제 − 기대</p>
+          <p data-testid="riccio-gap" className={`font-mono text-lg font-semibold ${gap > 0 ? 'text-red' : 'text-accent'}`}>{signed(gap)}</p>
         </div>
       </div>
-    </div>
-  );
-}
-
-function BaselineChip({
-  bucket,
-  confidence,
-  source,
-}: {
-  bucket: BaselineBucket;
-  confidence: ConfidenceLevel;
-  source: 'round_handicap' | 'skill_index' | 'default';
-}) {
-  const sourceLabel =
-    source === 'round_handicap'
-      ? '핸디캡 기반'
-      : source === 'skill_index'
-      ? 'SkillIndex 기반'
-      : '기본값';
-
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border border-border ${confidenceBg[confidence]}`}>
-        <span className="text-text2">Baseline:</span>
-        <span className="font-mono font-semibold text-text">{bucket}</span>
-        <span className="text-text3">·</span>
-        <span className={confidenceColors[confidence]}>Confidence: {confidence}</span>
-      </span>
-      <span className="text-[10px] text-text3">{sourceLabel}</span>
-    </div>
-  );
-}
-
-interface ChartTooltipProps {
-  active?: boolean;
-  payload?: Array<{ value: number; name: string }>;
-  label?: string;
-  labelMap?: Record<string, string>; // date → courseName
-  unit?: string;
-}
-
-function ChartTooltip({ active, payload, label, labelMap, unit }: ChartTooltipProps) {
-  if (!active || !payload || payload.length === 0) return null;
-  const course = label && labelMap ? labelMap[label] : '';
-  const val = payload[0]?.value;
-  return (
-    <div className="rounded-lg border border-border bg-surface2 px-3 py-2 text-xs shadow-lg">
-      {course && <p className="font-medium text-text mb-0.5 truncate max-w-[140px]">{course}</p>}
-      {label && <p className="text-text3">{label}</p>}
-      {val !== undefined && (
-        <p className="font-mono text-accent mt-1">
-          {val.toFixed(1)}{unit ?? ''}
+      <p className="text-xs text-text2 leading-relaxed">{reading}</p>
+      {puttGap !== null && r.putts18 !== null && (
+        <p className="text-[10px] text-text3">
+          퍼트: 실제 {r.putts18.toFixed(1)} vs GIR 기준 기대 {r.expPutts.toFixed(1)} ({signed(puttGap)}) · Putts ≈ 37 − ⅔ × GIR
         </p>
       )}
+    </div>
+  );
+}
+
+interface TipProps {
+  active?: boolean;
+  payload?: Array<{ value: number | null; dataKey: string; payload: TrendPoint }>;
+  label?: string;
+}
+
+function TrendTooltip({ active, payload }: TipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  const p = payload[0].payload;
+  return (
+    <div className="rounded-lg border border-border bg-surface2 px-3 py-2 text-xs shadow-lg space-y-0.5">
+      <p className="font-medium text-text truncate max-w-[160px]">{p.course}</p>
+      <p className="text-text3">{p.date}</p>
+      <p className="font-mono text-text">스코어 {p.score.toFixed(1)}</p>
+      {p.riccio !== null && <p className="font-mono text-text2">Riccio 기대 {p.riccio.toFixed(1)}</p>}
     </div>
   );
 }
@@ -209,35 +110,23 @@ function ChartTooltip({ active, payload, label, labelMap, unit }: ChartTooltipPr
 function ScoreTrend({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return null;
   const recent = data.slice(-12);
-  const labelMap = Object.fromEntries(recent.map((d) => [d.date, d.course]));
-
   return (
     <div>
-      <p className="text-xs font-medium text-text2 mb-2">Score per 18 holes</p>
-      <ResponsiveContainer width="100%" height={160}>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-medium text-text2">Score per 18 holes</p>
+        <div className="flex items-center gap-3 text-[10px] text-text3">
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5" style={{ background: C.accent }} />실제</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-3 border-t border-dashed" style={{ borderColor: C.ref }} />Riccio 기대</span>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={170}>
         <LineChart data={recent} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" vertical={false} />
-          <XAxis
-            dataKey="date"
-            tick={{ fontSize: 10, fill: '#555555' }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 10, fill: '#555555' }}
-            tickLine={false}
-            axisLine={false}
-            domain={['auto', 'auto']}
-          />
-          <Tooltip content={<ChartTooltip labelMap={labelMap} unit=" 타" />} />
-          <Line
-            type="monotone"
-            dataKey="scorePer18"
-            stroke="#4ade80"
-            strokeWidth={2}
-            dot={{ r: 3, fill: '#4ade80', strokeWidth: 0 }}
-            activeDot={{ r: 5, fill: '#4ade80' }}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: C.tick }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: C.tick }} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
+          <Tooltip content={<TrendTooltip />} />
+          <Line type="monotone" dataKey="riccio" stroke={C.ref} strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
+          <Line type="monotone" dataKey="score" stroke={C.accent} strokeWidth={2} dot={{ r: 3, fill: C.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -245,194 +134,156 @@ function ScoreTrend({ data }: { data: TrendPoint[] }) {
 }
 
 function PuttsTrend({ data }: { data: TrendPoint[] }) {
-  const puttData = data.filter((d) => d.puttsPer18 !== null);
-  if (puttData.length < 2) return null;
-  const recent = puttData.slice(-12);
-  const labelMap = Object.fromEntries(recent.map((d) => [d.date, d.course]));
-
+  const pts = data.filter((d) => d.putts !== null);
+  if (pts.length < 2) return null;
+  const recent = pts.slice(-12);
   return (
     <div>
       <p className="text-xs font-medium text-text2 mb-2">Putts per 18 holes</p>
-      <ResponsiveContainer width="100%" height={140}>
+      <ResponsiveContainer width="100%" height={130}>
         <LineChart data={recent} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" vertical={false} />
-          <XAxis
-            dataKey="date"
-            tick={{ fontSize: 10, fill: '#555555' }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 10, fill: '#555555' }}
-            tickLine={false}
-            axisLine={false}
-            domain={['auto', 'auto']}
-          />
-          <Tooltip content={<ChartTooltip labelMap={labelMap} unit=" 퍼트" />} />
-          <Line
-            type="monotone"
-            dataKey="puttsPer18"
-            stroke="#60a5fa"
-            strokeWidth={2}
-            dot={{ r: 3, fill: '#60a5fa', strokeWidth: 0 }}
-            activeDot={{ r: 5, fill: '#60a5fa' }}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: C.tick }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: C.tick }} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
+          <Tooltip content={<TrendTooltip />} />
+          <Line type="monotone" dataKey="putts" stroke={C.blue} strokeWidth={2} dot={{ r: 3, fill: C.blue, strokeWidth: 0 }} activeDot={{ r: 5 }} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-function LeakCard({ leak, rank }: { leak: LeakItem; rank: number }) {
-  const isPositiveLoss = leak.id === 'around'
-    ? leak.lossPerRound > 0
-    : leak.lossPerRound < 0;
+interface SgBarPoint { cat: SgCategory; label: string; value: number }
 
-  const displayLoss = leak.id === 'around'
-    ? leak.lossPerRound.toFixed(2)
-    : Math.abs(leak.lossPerRound).toFixed(2);
-
+function SgBarTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: SgBarPoint }> }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const p = payload[0].payload;
   return (
-    <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-text3">
-            Biggest Leak #{rank}
-          </span>
-          <span
-            className={`text-[10px] rounded-full px-2 py-0.5 font-medium ${confidenceBg[leak.confidence]} ${confidenceColors[leak.confidence]}`}
-          >
-            {leak.confidence}
-          </span>
-        </div>
-        {leak.confidence === 'Low' && (
-          <span className="text-[10px] text-yellow bg-yellow-dim rounded px-1.5 py-0.5">
-            데이터 부족
-          </span>
-        )}
-      </div>
-
-      {/* Name */}
-      <p className="text-lg font-semibold text-text">{leak.name}</p>
-
-      {/* Loss */}
-      <div>
-        <p className="text-sm text-text2">
-          <span className="font-mono font-bold text-red text-base">{displayLoss}</span>
-          {' '}
-          {leak.id === 'around'
-            ? 'estimated strokes cost / round'
-            : 'estimated strokes lost / round'}
-        </p>
-        {leak.id === 'putting' && (
-          <p className="text-[10px] text-text3 mt-0.5">
-            Estimated · 기대 퍼트 − 실제 퍼트 ({leak.lossPerRound > 0 ? '+' : ''}{leak.lossPerRound.toFixed(2)})
-          </p>
-        )}
-      </div>
-
-      {/* Meta */}
-      <p className="text-[10px] text-text3">
-        {leak.sampleRounds}라운드 ·{' '}
-        샘플 {leak.totalSamples}개 ·{' '}
-        Coverage {Math.round(leak.coverage * 100)}%
-      </p>
-
-      {/* Action */}
-      <div className="rounded-lg bg-surface2 border border-border p-3">
-        <p className="text-[10px] font-semibold text-text3 uppercase tracking-wide mb-1">
-          Action
-        </p>
-        <p className="text-sm text-text2 leading-relaxed">{leak.action}</p>
-      </div>
-
-      {/* Low confidence warning */}
-      {leak.confidence === 'Low' && (
-        <p className="text-[10px] text-yellow leading-relaxed">
-          더 많이 기록할수록 분석이 정확해집니다. 대강/진지 모드로 샷을 기록하세요.
-        </p>
-      )}
+    <div className="rounded-lg border border-border bg-surface2 px-3 py-2 text-xs shadow-lg">
+      <p className="text-text">{p.label}</p>
+      <p className="font-mono text-text2">{signed(p.value, 2)} / 라운드</p>
     </div>
   );
 }
 
-/* ── Main Client Component ───────────────────────────────────────────── */
+function SgCard({ sgRounds }: { sgRounds: RoundSG[] }) {
+  const avg = averageSG(sgRounds);
+  if (!avg) {
+    return (
+      <div className="rounded-xl border border-border bg-surface p-4">
+        <p className="text-sm font-semibold">Strokes Gained vs Tour</p>
+        <p className="mt-1 text-xs text-text3">샷 원장이 완성된 홀이 있는 라운드가 없습니다.</p>
+      </div>
+    );
+  }
+  const data: SgBarPoint[] = SG_CATEGORIES.map((c) => ({ cat: c, label: SG_CATEGORY_LABELS[c], value: avg.byCat[c] }));
+  const holes = sgRounds.reduce((s, r) => s + r.holesCounted, 0);
 
-export function AnalysisClient({ data }: { data: AnalysisPageData }) {
-  const { allMetrics, baselineBucket, baselineConfidence, baselineSource } = data;
+  return (
+    <div data-testid="sg-card" className="rounded-xl border border-border bg-surface p-4 space-y-3">
+      <div className="flex items-baseline justify-between">
+        <p className="text-sm font-semibold">Strokes Gained vs Tour</p>
+        <p className={`font-mono text-sm font-semibold ${avg.total >= 0 ? 'text-accent' : 'text-red'}`}>{signed(avg.total)} / 라운드</p>
+      </div>
+      <ResponsiveContainer width="100%" height={150}>
+        <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }} barCategoryGap="30%">
+          <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 10, fill: C.tick }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: C.tick }} tickLine={false} axisLine={false} />
+          <ReferenceLine y={0} stroke={C.ref} />
+          <Tooltip content={<SgBarTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="value" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+            {data.map((d) => <Cell key={d.cat} fill={SG_COLOR[d.cat]} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <div className="grid grid-cols-4 gap-1 text-center">
+        {data.map((d) => (
+          <div key={d.cat}>
+            <p className="text-[10px] text-text3">{d.label}</p>
+            <p className={`font-mono text-xs font-semibold ${d.value >= 0 ? 'text-accent' : 'text-red'}`}>{signed(d.value, 2)}</p>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-text3 leading-relaxed">
+        PGA Tour 평균 대비 (Broadie 기준표). 값은 대부분 음수이니 카테고리 간 상대 비교로 읽으세요.
+        {' '}{avg.rounds}라운드 · 원장 {holes}홀 · 18홀 환산.
+      </p>
+    </div>
+  );
+}
 
+const LEAK_ACTION: Record<SgCategory, string> = {
+  tee: '티샷에서 가장 많이 잃습니다. 페어웨이 안착과 OB·해저드 회피가 우선입니다. 드라이버 대신 한 클럽 짧게 잡는 것도 방법입니다.',
+  approach: '어프로치(50m 초과)에서 가장 많이 잃습니다. 그린 적중률과 남은 거리를 줄이는 데 집중하세요. 핀보다 그린 중앙을 노리세요.',
+  short: '숏게임(50m 이내)에서 가장 많이 잃습니다. 첫 퍼트를 2m 안에 남기는 연습이 가장 효과적입니다.',
+  putt: '퍼팅에서 가장 많이 잃습니다. 롱퍼트 거리감과 1~2m 퍼트 성공률을 점검하세요.',
+};
+
+function LeakCards({ sgRounds }: { sgRounds: RoundSG[] }) {
+  const avg = averageSG(sgRounds);
+  if (!avg) return null;
+  const ranked = SG_CATEGORIES
+    .map((c) => ({ cat: c, value: avg.byCat[c] }))
+    .sort((a, b) => a.value - b.value)
+    .slice(0, 2);
+  return (
+    <div className="space-y-3">
+      {ranked.map((l, i) => (
+        <div key={l.cat} data-testid="leak-card" data-category={l.cat} className="rounded-xl border border-border bg-surface p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-text3">Biggest Leak #{i + 1}</span>
+            <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: SG_COLOR[l.cat] }} />
+          </div>
+          <p className="text-lg font-semibold text-text">{SG_CATEGORY_LABELS[l.cat]}</p>
+          <p className="text-sm text-text2">
+            <span className={`font-mono font-bold text-base ${l.value >= 0 ? 'text-accent' : 'text-red'}`}>{signed(l.value, 2)}</span>
+            {' '}strokes vs Tour / round
+          </p>
+          <div className="rounded-lg bg-surface2 border border-border p-3">
+            <p className="text-[10px] font-semibold text-text3 uppercase tracking-wide mb-1">Action</p>
+            <p className="text-sm text-text2 leading-relaxed">{LEAK_ACTION[l.cat]}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── 메인 ─────────────────────────────────────────────────── */
+
+const MIN_ROUNDS_FOR_SG = 3;
+
+export function AnalysisClient({ rounds }: { rounds: RoundSummary[] }) {
   const [period, setPeriod] = useState<Period>('all');
 
-  /* ── Period filter ── */
+  const played = useMemo(() => rounds.filter((r) => r.stats.holesPlayed > 0), [rounds]);
 
-  const filteredMetrics = useMemo<RoundMetricsData[]>(() => {
+  const filtered = useMemo(() => {
     const cutoff = getPeriodCutoff(period);
-    if (!cutoff) return allMetrics;
-    return allMetrics.filter((m) => new Date(m.date) >= cutoff);
-  }, [allMetrics, period]);
+    if (!cutoff) return played;
+    return played.filter((r) => new Date(r.date) >= cutoff);
+  }, [played, period]);
 
-  /* ── Period summary ── */
+  const stats = useMemo(() => periodStats(filtered.map((r) => r.stats)), [filtered]);
 
-  const periodSummary = useMemo<PeriodSummary>(() => {
-    const roundCount = filteredMetrics.length;
-    if (roundCount === 0) {
-      return {
-        roundCount: 0,
-        avgScore: null,
-        avgPutts: null,
-        girRate: null,
-        girNum: 0,
-        girDen: 0,
-        puttsCoverage: null,
-        girCoverage: null,
-      };
-    }
+  const trend = useMemo<TrendPoint[]>(() =>
+    [...filtered]
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map((r) => ({
+        date: fmtShort(r.date),
+        course: r.course,
+        score: r.stats.scorePer18,
+        riccio: r.stats.riccio?.expScore ?? null,
+        putts: r.stats.puttsPer18,
+      })),
+    [filtered]);
 
-    const avgScore =
-      filteredMetrics.reduce((s, m) => s + m.scorePer18, 0) / roundCount;
+  const sgRounds = useMemo(() => filtered.map((r) => r.sg).filter((s): s is RoundSG => s !== null), [filtered]);
 
-    const puttsRounds = filteredMetrics.filter((m) => m.puttsTotal !== null);
-    const avgPutts =
-      puttsRounds.length > 0
-        ? puttsRounds.reduce((s, m) => s + m.puttsPer18!, 0) / puttsRounds.length
-        : null;
-
-    const girNum = filteredMetrics.reduce((s, m) => s + (m.girCount ?? 0), 0);
-    const girDen = filteredMetrics.reduce((s, m) => s + (m.girDen ?? 0), 0);
-    const girRate = girDen > 0 ? girNum / girDen : null;
-
-    const girRoundsWithData = filteredMetrics.filter((m) => (m.girDen ?? 0) > 0);
-    const puttsCoverage = puttsRounds.length / roundCount;
-    const girCoverage = roundCount > 0 ? girRoundsWithData.length / roundCount : null;
-
-    return { roundCount, avgScore, avgPutts, girRate, girNum, girDen, puttsCoverage, girCoverage };
-  }, [filteredMetrics]);
-
-  /* ── Trend data (date-ascending, 12 most recent) ── */
-
-  const trendData = useMemo<TrendPoint[]>(() => {
-    const sorted = [...filteredMetrics].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
-    return sorted.map((m) => ({
-      date: fmtShortDate(m.date),
-      fullDate: fmtFullDate(m.date),
-      course: m.course,
-      scorePer18: m.scorePer18,
-      puttsPer18: m.puttsPer18,
-    }));
-  }, [filteredMetrics]);
-
-  /* ── Leaks (recalculate for filtered period) ── */
-
-  const periodLeaks = useMemo<LeakItem[]>(() => rankLeaks(filteredMetrics), [filteredMetrics]);
-
-  /* ── Empty states ── */
-
-  if (allMetrics.length === 0) {
+  if (played.length === 0) {
     return (
-      <div className="px-4 py-6 space-y-4 pb-24">
+      <div className="space-y-4">
         <h1 className="text-lg font-bold">Analysis</h1>
         <div className="rounded-xl border border-border bg-surface p-8 text-center">
           <p className="text-text2">라운드 기록이 없습니다</p>
@@ -442,77 +293,39 @@ export function AnalysisClient({ data }: { data: AnalysisPageData }) {
     );
   }
 
-  if (allMetrics.length < 3) {
-    return (
-      <div className="px-4 py-6 space-y-4 pb-24">
-        <h1 className="text-lg font-bold">Analysis</h1>
-        <div className="rounded-xl border border-border bg-surface p-6 text-center">
-          <p className="text-text2 font-medium">분석에 최소 3라운드가 필요합니다</p>
-          <p className="mt-1 text-sm text-text3">현재 {allMetrics.length}라운드</p>
-          <p className="mt-3 text-xs text-text3 leading-relaxed max-w-xs mx-auto">
-            더 많은 라운드를 기록하면 트렌드 차트와 Biggest Leak 분석이 활성화됩니다
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Main render ── */
-
   return (
-    <div className="px-4 py-6 space-y-5 pb-24">
+    <div className="space-y-5">
       <h1 className="text-lg font-bold">Analysis</h1>
-
-      {/* Period filter */}
       <PeriodFilter period={period} onChange={setPeriod} />
 
-      {/* Summary KPIs */}
-      <SummaryCards summary={periodSummary} />
-
-      {/* Baseline chip */}
-      <BaselineChip
-        bucket={baselineBucket}
-        confidence={baselineConfidence}
-        source={baselineSource}
-      />
-
-      {/* Trend section */}
-      {filteredMetrics.length > 0 ? (
-        <div className="rounded-xl border border-border bg-surface p-4 space-y-5">
-          <p className="text-sm font-semibold text-text">Trend</p>
-          <ScoreTrend data={trendData} />
-          <PuttsTrend data={trendData} />
-        </div>
-      ) : (
+      {filtered.length === 0 ? (
         <div className="rounded-xl border border-border bg-surface p-6 text-center">
           <p className="text-sm text-text3">이 기간에 라운드가 없습니다</p>
         </div>
-      )}
+      ) : (
+        <>
+          <ElliottTiles stats={stats} />
+          <RiccioCard stats={stats} />
 
-      {/* Leak section */}
-      {filteredMetrics.length >= 3 ? (
-        periodLeaks.length > 0 ? (
-          <div className="space-y-3">
-            {periodLeaks.map((leak, i) => (
-              <LeakCard key={leak.id} leak={leak} rank={i + 1} />
-            ))}
+          <div data-testid="trend-card" className="rounded-xl border border-border bg-surface p-4 space-y-5">
+            <p className="text-sm font-semibold text-text">Trend</p>
+            <ScoreTrend data={trend} />
+            <PuttsTrend data={trend} />
           </div>
-        ) : (
-          <div className="rounded-xl border border-border bg-surface p-6 text-center">
-            <p className="text-text2 text-sm font-medium">eSG 계산 데이터가 부족합니다</p>
-            <p className="mt-2 text-xs text-text3 leading-relaxed max-w-xs mx-auto">
-              대강/진지 모드로 샷을 기록하면 Biggest Leak 분석이 가능해집니다
-            </p>
-          </div>
-        )
-      ) : filteredMetrics.length > 0 ? (
-        <div className="rounded-xl border border-border bg-surface p-5 text-center">
-          <p className="text-sm text-text3">
-            이 기간에 라운드가 {filteredMetrics.length}개뿐입니다.<br />
-            Leak 분석에 최소 3라운드가 필요합니다.
-          </p>
-        </div>
-      ) : null}
+
+          {sgRounds.length >= MIN_ROUNDS_FOR_SG ? (
+            <>
+              <SgCard sgRounds={sgRounds} />
+              <LeakCards sgRounds={sgRounds} />
+            </>
+          ) : (
+            <div data-testid="sg-needs-more" className="rounded-xl border border-border bg-surface p-5 text-center">
+              <p className="text-sm text-text2 font-medium">Strokes Gained 분석에 원장 라운드 {MIN_ROUNDS_FOR_SG}개가 필요합니다</p>
+              <p className="mt-1 text-xs text-text3">현재 {sgRounds.length}라운드 · 홀마다 샷 원장을 홀아웃까지 입력하면 집계됩니다</p>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

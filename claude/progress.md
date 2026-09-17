@@ -128,12 +128,35 @@ UI에서 "핸디" 용어 사용 금지, "Baseline: 11-15 (Confidence: Medium)" �
 
 ---
 
-## Phase 4D — Widgets/Pin (미구현)
+## Phase 4D — Widgets/Pin (미구현 → Phase 6에서 폐기, future-improvements로 이동)
 
-`claude/future-improvements.md` 참조.
+---
+
+## Phase 6 — 최소 데이터 재설계 (2026-09-17)
+
+**왜 바꿨나.** 세 글(Elliott PGA 기본 stat, Riccio's Rule, Shot Scope SG)을 기준으로 기존 설계를 다시 봤다.
+기존 앱은 "루틴 일지 + SG 근사"라는 두 목표 때문에 입력이 무거웠고, 대강 모드조차 Elliott 기본 5개보다
+많은 데이터를 요구했다. 반면 eSG는 샷 체인(홀 길이·티샷 후 남은 거리)이 없어 근사에 그쳤고, 근사를
+방어하느라 SkillIndex·Baseline·coverage·confidence 인프라가 붙었다. 보정 안 된 시드 위에서 정밀함의
+이점은 못 얻고 입력 비용만 내는 상태였다.
+
+**무엇으로 바꿨나.** 모드 시스템 제거. 홀당 입력을 SG 원장(샷마다 친 후 라이 + 남은 거리 버킷 + 벌타)
+하나로 통일. 이 원장에서 스코어·FIR·GIR·퍼트·벌타·업앤다운(Elliott 5)과 Riccio 기대 스코어가 전부
+파생되고, Broadie 투어 기준표로 샷별 SG를 계산한다. 원장은 Elliott 5의 상위 집합이라 별도 입력이 없다.
+
+**주요 결정:**
+- 거리는 숫자가 아니라 버킷 (탭 수를 Elliott 5개 수준으로). SG는 버킷 중간값으로 근사 — Shot Scope 예시 홀 대조 시 −0.92 vs −0.99.
+- 홀 길이도 파별 버킷 한 탭. 없으면 티샷 SG만 건너뜀.
+- "스코어만 입력" 탈출구 유지 (블로업 홀). 그 홀은 스코어 트렌드에만 포함.
+- SG 기준표는 투어만. 실력별 표는 future-improvements.
+- 기준표는 DB 테이블 대신 TS 상수 (`sg.ts`) — 읽기 전용이고 서버에서 TS로 계산하므로.
+- 기존 홀 데이터는 버림 (007 마이그레이션이 holes 재생성). eSG 관련 테이블 5개 삭제.
+- Analysis 순서: Elliott 타일 → Riccio 카드 → Trend(Riccio 점선) → SG vs Tour → Leak. Riccio를 SG보다 위에.
+
+상세: `claude/phase6.md`
 
 ---
 
 ## 다음: Phase 5
 
-`claude/phase5.md` 참조 — OAuth, PWA, 고도화 등.
+`claude/phase5.md` 참조 — PWA, Kakao OAuth + 온보딩, 성능.

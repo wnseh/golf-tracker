@@ -1,3 +1,5 @@
+> **⚠️ Phase 6에서 대체됨.** 모드 시스템·eSG·Baseline은 폐기되었고 데이터 모델이 SG 원장으로 바뀌었다. 현행 스펙은 `claude/phase6.md`. 이 문서는 이력 참고용.
+
 # Phase 4 — Scorecard & Analysis (MVP → eSG)
 
 ## 목표

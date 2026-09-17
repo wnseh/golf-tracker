@@ -6,6 +6,7 @@ interface MiniToggleProps<T extends string> {
   onChange: (v: T) => void;
   labels?: Record<string, string>;
   color?: 'accent' | 'red' | 'blue' | 'yellow' | 'purple';
+  testIdPrefix?: string;   // data-testid=`${prefix}-${option}`
 }
 
 const colorMap = {
@@ -17,7 +18,7 @@ const colorMap = {
 };
 
 export function MiniToggle<T extends string>({
-  options, value, onChange, labels, color = 'accent',
+  options, value, onChange, labels, color = 'accent', testIdPrefix,
 }: MiniToggleProps<T>) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -27,6 +28,8 @@ export function MiniToggle<T extends string>({
           <button
             key={opt}
             type="button"
+            data-testid={testIdPrefix ? `${testIdPrefix}-${opt}` : undefined}
+            data-active={active ? 'true' : 'false'}
             onClick={() => onChange(opt)}
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
               active

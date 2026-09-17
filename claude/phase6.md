@@ -1,0 +1,83 @@
+# Phase 6 — 최소 데이터 재설계 (SG 원장 + Elliott 5 + Riccio)
+
+## 배경
+
+Phase 1~4는 "루틴 일지 + SG 근사(eSG)"를 목표로 만들어져 입력이 무거웠고, eSG는 샷 체인(치기 전/친 후 위치)이
+완성되지 않아 근사에 그쳤다. `claude/`의 세 글을 기준으로 데이터 모델을 처음부터 다시 정했다.
+
+- **Elliott (PGA)** — 기본 stat 5개: FIR, GIR, Up & Down, Putts, Penalties. 10라운드 모아 2~3개 영역에 집중.
+- **Riccio's Rule** — GIR이 스코어의 가장 강한 예측 변수. `Score ≈ 95 − 2·GIR`, `Putts|GIR ≈ 37 − ⅔·GIR`, `Score ≈ 58 − 4/3·GIR + Putts`.
+- **Shot Scope (SG)** — 샷 SG = E(치기 전 위치) − E(친 후 위치) − 1. 위치 = 남은 거리 + 라이. 4카테고리(Tee/Approach/Short/Putting).
+
+**결정:** 모드 시스템 제거. 홀당 입력 = SG 원장(거리 버킷). Elliott 5와 Riccio는 원장에서 파생. SG 기준표는 투어만.
+
+---
+
+## 데이터 모델
+
+### holes (007에서 재생성)
+```
+holes (id, round_id, user_id, hole_num, par, score,
+       hole_len_bucket text null, shots jsonb null, notes, saved_at)
+```
+- `shots` = `Shot[]`. `Shot = { lie, dist, pen }`. lie/dist는 **친 후** 위치. `pen`은 이 샷의 1벌타.
+- 샷 N의 친 후 = 샷 N+1의 치기 전. 샷 1의 치기 전 = 티 (홀 길이 버킷).
+- 마지막 항목이 `HOLED`이고 그 앞이 전부 거리를 가지면 "완성". 완성된 홀만 stat/SG에 집계.
+- `shots = null` → "스코어만 입력" 홀. 스코어 트렌드에는 포함, 나머지 stat은 N/A.
+- 스코어 = shots.length + Σpen (원장 완성 시 파생).
+
+### 버킷 (m)
+| 라이 | 남은 거리 버킷 | SG 중간값 |
+|---|---|---|
+| FW / RO / SA / TR | 0-20 / 20-50 / 50-100 / 100-150 / 150-200 / 200+ | 10 / 35 / 75 / 125 / 175 / 230 |
+| GR | 0-1 / 1-2 / 2-5 / 5-10 / 10+ | 0.5 / 1.5 / 3.5 / 7.5 / 13 |
+
+| 파 | 홀 길이 버킷 | 중간값 |
+|---|---|---|
+| 3 | <120 / 120-150 / 150-180 / 180+ | 105 / 135 / 165 / 195 |
+| 4 | <300 / 300-350 / 350-400 / 400+ | 280 / 325 / 375 / 420 |
+| 5 | <450 / 450-500 / 500+ | 430 / 475 / 520 |
+
+### rounds
+`input_mode`, `green_speed` 삭제. 나머지 유지.
+
+### 삭제된 테이블
+`round_metrics`, `skill_index_snapshots`, `expected_strokes`, `user_settings`, `user_clubs`
+
+---
+
+## 파생 계산 (`src/lib/stats.ts`)
+
+홀 (원장 완성 시):
+- `fir` = 파≥4 ? 샷1 친 후 라이 == FW : null
+- `gir` = 샷 1..(파−2) 중 친 후 라이가 GR 또는 HOLED
+- `putts` = 치기 전 라이가 GR인 샷 수
+- `penalties` = Σpen
+- `scramble` (Up & Down) = GIR 미스 홀에서 score ≤ par
+
+라운드/기간: 분모(den)와 원장 coverage를 항상 동반. 18홀 환산은 ×18/완성홀수.
+Riccio는 합산 GIR·퍼트를 18홀 환산한 뒤 공식 적용.
+
+## SG (`src/lib/sg.ts`)
+
+- 기준표: Broadie 2011 논문 Table 9 (TEE/FW/RO/SA/Recovery, yards) + 퍼팅 논문 Figure 1 (GR, feet).
+  코드에 TS 상수로 내장, 조회 시 m 변환 + 선형 보간 + 범위 밖 클램프.
+- 카테고리 (치기 전 위치): tee = 파4/5 샷1, approach = 그린 밖 >50m (파3 샷1 포함), short = 그린 밖 ≤50m, putt = 그린.
+- 홀 길이 버킷 없으면 샷1만 건너뜀 (skipped 카운트).
+- 검증: Shot Scope 글 예시 홀(파4 426yd 5타) 글 −0.92 / 우리 −0.99 (버킷 오차). 기준표 스팟체크 3개 일치.
+
+---
+
+## 화면
+
+- **입력** (`round/[id]/hole-input.tsx`): 파 → 홀 길이 칩 → 샷 원장(`shot-ledger.tsx`: 라이 칩 → 거리 칩 → 행 확정, 행별 +1 벌타) → 노트 → 저장.
+  스코어/FIR/GIR/퍼트/벌타 실시간 파생 표시. "스코어만 입력" 토글은 블로업 홀용 탈출구.
+  미저장 홀은 네비에 노란 링. 원장 미완성 상태로 저장 시도 시 토스트로 차단.
+- **Card**: Elliott 타일 6개 + 라운드 리스트 + 홀 테이블(H#/Par/Score/FIR/GIR/Putt/Pen/SG).
+- **Analysis**: 기간 필터 → Elliott 타일 → Riccio 카드(기대 vs 실제, 해석 문구) → Trend(스코어 실선 + Riccio 점선, 퍼트) → SG vs Tour 막대 → Biggest Leak 2개.
+  SG·Leak은 원장 라운드 3개부터.
+- **Settings**: 계정 이메일 + Sign Out.
+
+## 문구 규칙
+- 미기록은 0이 아니라 N/A. 비율에는 분모, 평균에는 라운드 수와 "18홀 환산" 표기.
+- SG는 항상 "vs Tour" 동반. 기대치는 "Riccio" 출처 표기. "eSG", "Baseline", "핸디" 표기 폐기.

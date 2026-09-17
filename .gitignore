@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# serena
+.serena/
+
+# playwright
+/tests/.auth/
+/playwright-report/
+/test-results/

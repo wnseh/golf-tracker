@@ -42,15 +42,14 @@
 
 **Step 1 — 필수 정보 (Skip 버튼 잠김)**
 - 성별: 남성 / 여성
-  - 즉시 클럽 거리 기본값에 반영 (carryMale / carryFemale)
+  - (Phase 6에서 클럽 설정이 제거되어 현재는 저장만. 코스 DB/거리 추정에 활용 예정)
 - 핸디캡: 직접 입력 또는 범위 선택 (언더파 / 5이하 / 6-10 / 11-15 / 16-20 / 21-25 / 26+ / 없음·초보)
-  - eSG baseline bucket 결정에 직접 사용
-  - "없음·초보" 선택 시 SkillIndex 자동 추정으로 fallback
+  - 향후 실력별 SG 기준표 선택에 사용 (`future-improvements.md`). 현재 SG는 투어 기준표만.
 
 **Step 2 — 선택 정보 (Skip 버튼 활성화)**
 - 선호 티 (흰색 / 노란색 / 파란색 / 빨간색 / 기타) → 새 라운드 생성 시 자동 입력
 - 홈 코스 이름 → 새 라운드 생성 시 자동 입력
-- 월 평균 라운드 수 → confidence 스코어링 보정에 활용
+- 월 평균 라운드 수 → 분석 최소 라운드 안내에 활용
 
 ### DB 변경
 `user_profiles` 테이블 신규 (user_settings와 분리 — 역할이 다름):
@@ -71,7 +70,7 @@ user_profiles (
 **기존 rounds.handicap과의 관계:**
 - `user_profiles.handicap` — 유저의 전반적 실력 (온보딩 시 입력)
 - `rounds.handicap` — 해당 라운드의 실제 핸디캡 (라운드별로 다를 수 있음)
-- eSG 계산 우선순위: `rounds.handicap` → `user_profiles.handicap_bucket` → SkillIndex → default
+- 실력별 SG 기준표가 생기면 `rounds.handicap` → `user_profiles.handicap_bucket` 순으로 기준표 선택
 
 ---
 
