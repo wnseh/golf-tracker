@@ -157,6 +157,57 @@ UI에서 "핸디" 용어 사용 금지, "Baseline: 11-15 (Confidence: Medium)" �
 
 ---
 
+## SG 해설 모달 (2026-09-18)
+
+**왜.** SG 숫자만으로는 "그래서 뭘 하지"가 안 나온다. 카테고리별 읽는 법과 내 상황에 맞는 해설을 ⓘ로 열어 보게 했다.
+
+**결정:**
+- 문구·규칙은 DB가 아니라 `src/lib/insights.ts` 파일. 사용자 데이터가 아니라 참조 콘텐츠이고, git 이력·타입 검사·`test:lib`로
+  검증되며 push로 배포된다. 앱 안에서 편집하거나 사용자별 문구가 필요해지면 같은 스키마로 테이블로 옮긴다.
+- 두 층: 고정 해설(무엇을 재나 / 읽는 법 / Leak Action)과 상황 규칙(`selectInsights`). 규칙마다 `source` 필수.
+- 근거: Broadie 2011 기준표·Every Shot Counts(롱게임 2/3), Sherman Four Foundations·practical-golf(인플레이 > 페어웨이,
+  그린 중앙 + 뒤쪽 야디지, 웨지는 올리기, 스피드 컨트롤, 더블보기 줄이기), Riccio. 임계값에 근거 없으면 "앱 기준".
+- Sherman의 핵심 지표를 위해 `stats.ts`에 더블보기 비율(스코어만 홀 포함)과 3퍼트 비율(완성 홀) 추가.
+- 실력별 기준표(Stagner/Broadie 아마추어 표)는 여전히 보류. 들어오면 `InsightContext`에 필드 추가로 규칙 확장.
+
+## 컨택(strike) 필드 (2026-09-18)
+
+**왜.** SG는 결과만 보므로 어프로치 손실이 클럽 선택 문제인지 타점 문제인지 못 가른다. Young(The Practice Manual / Strike Plan)은
+아마추어 손실의 큰 부분이 컨택이라고 본다. 샷당 한 칸이면 "미스 샷의 SG vs 정상 샷의 SG"로 진단이 갈린다.
+
+**결정:**
+- `Shot.strike?: 'ok' | 'miss' | null`. 퍼트는 null(입력 UI도 숨김). 나머지는 원장 입력 시 `ok`로 시작, 미스만 한 번 더 탭.
+  뒤땅/탑/힐/토 세부 유형은 넣지 않음 — 아마추어 자기 진단의 신뢰도가 낮아 "미스" 하나만.
+- 이전 데이터는 필드 없음 → N/A. jsonb라 마이그레이션 없음.
+- `stats.ts` mishits(홀/라운드/기간), `sg.ts` byStrike + sumStrike, 해설 규칙 4개(타점 문제 / 판단 문제 / 기록 부족 / 전체 미스율).
+  임계값(기록 10샷, 손실 비중 60%/30%, 미스율 25%)은 앱 기준.
+
+---
+
+## Shot Scope 캡처 대조 (2026-09-18)
+
+`claude/Understanding Strokes Gained_...pdf`의 앱 화면 3장과 비교. 4카테고리 SG 막대·전통 stat·홀 테이블은 이미 같은 구조.
+없던 것 두 개를 추가: 홀 입력 원장의 **샷별 SG**(글의 핵심 예시 표 형태, `holeSG` 결과를 그대로 표시)와 Analysis의
+**Round vs 기간** 카드(Shot Scope의 Round/Season 비교. 라운드 선택, Score/FIR/GIR/Putts/Up&Down/Penalty/Double+/SG, Δ 색).
+Card와 홀 입력의 스코어 색이 달랐던 것을 `vsParColor` 하나로 통일. 스코어 유형(이글~더블) 개수 분포는 아직 없음.
+
+## 로깅 · Sentry · 홀 저장 복원력 (2026-09-21)
+
+**왜.** 앱에 로그가 전혀 없었다(`console.*` 0, 에러 페이지 0). Supabase 에러는 서버 읽기 9곳에서 빈 데이터로 삼켜지고,
+유일한 쓰기 경로인 홀 저장은 실패 시 "저장 실패" 2초 토스트가 전부에 `catch`도 없어 코스에서 통신이 끊기면 입력이 사라졌다.
+
+**결정:**
+- `lib/log.ts` `logError/logWarn`: console 항상(서버=Vercel 로그) + Sentry는 DSN 있을 때만. 미로그인은 로그 제외.
+- Sentry `@sentry/nextjs` 10, 표준 레이아웃(instrumentation ×2 + config ×2 + withSentryConfig). traces 0, replay 없음, tunnelRoute 없음(미들웨어 matcher와 충돌).
+  Turbopack에선 middleware가 계측되지 않아 middleware는 console만. `middleware.ts → proxy.ts` 개명은 보류.
+- 서버 읽기 실패는 throw → `error.tsx`. 부분 데이터로 stat을 내면 "N/A" 규칙을 어기고 틀린 숫자가 나오므로.
+  라운드 페이지는 UUID 검사 + `.maybeSingle()`로 "없음(404)"과 "DB 실패(에러 페이지)"를 분리. 홀 로드 실패도 throw(빈 홀로 덮어쓰기 방지).
+- 클라 mutation은 원본 `error.message` 대신 `save-errors.ts` 문구. 분류 기준: PostgREST `code ''` = 네트워크, 42501 = RLS, 23xxx = 제약, 401/PGRST30x = 인증.
+- 홀 저장: 대기 홀 + 현재 홀을 배치 upsert(멱등) → `withRetry` 첫 시도 + 재시도 3회(500ms/1s/2s, 스피너 "재시도 중 n/3") →
+  실패 시 `pending-holes`(라운드당 localStorage 키 하나)에 보관, 네비 빨간 점 + 버튼 "(+미저장 N홀)" + 인라인 안내. 차단 모달 없음.
+  다음 저장 때 함께 저장. 대기 홀 쪽 데이터 오류가 배치를 막으면 현재 홀만 단독 저장 폴백. 마운트 시 복원.
+  권한/제약/형식 오류는 재시도·보관 없이 문구만. 인증 만료는 보관은 하되 재시도 안 함.
+
 ## 다음: Phase 5
 
 `claude/phase5.md` 참조 — PWA, Kakao OAuth + 온보딩, 성능.

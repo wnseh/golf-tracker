@@ -20,7 +20,10 @@ Phase 1~4는 "루틴 일지 + SG 근사(eSG)"를 목표로 만들어져 입력�
 holes (id, round_id, user_id, hole_num, par, score,
        hole_len_bucket text null, shots jsonb null, notes, saved_at)
 ```
-- `shots` = `Shot[]`. `Shot = { lie, dist, pen }`. lie/dist는 **친 후** 위치. `pen`은 이 샷의 1벌타.
+- `shots` = `Shot[]`. `Shot = { lie, dist, pen, strike? }`. lie/dist는 **친 후** 위치. `pen`은 이 샷의 1벌타.
+- `strike` (2026-09-18 추가) = 컨택 `'ok' | 'miss' | null`. 퍼트(치기 전 GR)는 null. 원장 입력 시 나머지는 `ok`로 시작하고
+  "미스" 토글로 바꾼다. 필드 없음 = 도입 전 데이터 = N/A. 마이그레이션 불필요(jsonb).
+  파생: `stats.mishits`(미스/기록 샷), `sg.byStrike`(컨택별 SG 합). 해설 규칙에서 "미스 샷이 손실의 x%"로 타점 문제(Young)와 판단 문제(Sherman)를 가른다.
 - 샷 N의 친 후 = 샷 N+1의 치기 전. 샷 1의 치기 전 = 티 (홀 길이 버킷).
 - 마지막 항목이 `HOLED`이고 그 앞이 전부 거리를 가지면 "완성". 완성된 홀만 stat/SG에 집계.
 - `shots = null` → "스코어만 입력" 홀. 스코어 트렌드에는 포함, 나머지 stat은 N/A.
@@ -74,8 +77,12 @@ Riccio는 합산 GIR·퍼트를 18홀 환산한 뒤 공식 적용.
   스코어/FIR/GIR/퍼트/벌타 실시간 파생 표시. "스코어만 입력" 토글은 블로업 홀용 탈출구.
   미저장 홀은 네비에 노란 링. 원장 미완성 상태로 저장 시도 시 토스트로 차단.
 - **Card**: Elliott 타일 6개 + 라운드 리스트 + 홀 테이블(H#/Par/Score/FIR/GIR/Putt/Pen/SG).
-- **Analysis**: 기간 필터 → Elliott 타일 → Riccio 카드(기대 vs 실제, 해석 문구) → Trend(스코어 실선 + Riccio 점선, 퍼트) → SG vs Tour 막대 → Biggest Leak 2개.
+- **Analysis**: 기간 필터 → Elliott 타일 → Round vs 기간(라운드 선택, stat별 나란히 + Δ) → Riccio 카드(기대 vs 실제, 해석 문구) → Trend(스코어 실선 + Riccio 점선, 퍼트) → SG vs Tour 막대 → Biggest Leak 2개.
+- **홀 입력**: 원장 샷 줄마다 샷별 SG vs Tour(진행 중에도 계산), Shots 헤더에 홀 합계. 스코어 색은 score-input의 vsParColor로 Card와 통일.
   SG·Leak은 원장 라운드 3개부터.
+  SG 카드 헤더·카테고리 셀·Leak 카드의 ⓘ → 해설 모달(`sg-insight-modal.tsx`). 문구와 상황 규칙은 `src/lib/insights.ts`
+  (고정 해설 SG_GUIDE + 규칙 selectInsights; 출처 Broadie 2011/2014, Sherman Four Foundations/practical-golf, Riccio; 근거 없는 임계값은 "앱 기준").
+  이를 위해 `stats.ts`에 더블보기(저장 홀 기준)·3퍼트(완성 홀 기준) 비율 추가.
 - **Settings**: 계정 이메일 + Sign Out.
 
 ## 문구 규칙
