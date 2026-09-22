@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
+import { logError, isSessionMissing } from '@/lib/log';
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error && !isSessionMissing(error)) logError('auth.getUser', error, { where: 'settings' });
 
   return (
     <div className="space-y-6">

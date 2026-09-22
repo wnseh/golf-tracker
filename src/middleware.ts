@@ -27,7 +27,12 @@ export async function middleware(request: NextRequest) {
 
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+  // Edge 런타임: Sentry 자동 계측이 안 되고 번들 크기도 있어 console만 (Vercel Edge 로그). 미로그인은 정상 케이스.
+  if (error && error.name !== 'AuthSessionMissingError') {
+    console.error('[golf-tracker]', 'middleware.getUser', { name: error.name, message: error.message, status: error.status, pathname: request.nextUrl.pathname });
+  }
 
   const { pathname } = request.nextUrl;
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');

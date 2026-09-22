@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { logError } from '@/lib/log';
+import { classifySupabaseError, saveErrorMessage } from '@/lib/save-errors';
 import type { WeatherVal } from '@/lib/types';
 import { WEATHER_OPTIONS, WEATHER_LABELS, WEATHER_ICONS, todayLocalISO } from '@/lib/constants';
 
@@ -34,7 +36,8 @@ export function NewRoundButton() {
       const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
       if (authErr || !user) {
-        setError(authErr?.message ?? 'Not authenticated. Please sign in again.');
+        if (authErr) logError('round.create.auth', authErr);
+        setError(saveErrorMessage('auth'));
         setLoading(false);
         return;
       }
@@ -56,7 +59,8 @@ export function NewRoundButton() {
         .single();
 
       if (insertErr || !data) {
-        setError(insertErr?.message ?? 'Failed to create round.');
+        logError('round.create', insertErr ?? new Error('insert returned no row'));
+        setError(insertErr ? saveErrorMessage(classifySupabaseError(insertErr)) : '라운드를 만들지 못했습니다');
         setLoading(false);
         return;
       }
@@ -64,7 +68,8 @@ export function NewRoundButton() {
       router.push(`/round/${data.id}`);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unexpected error');
+      logError('round.create.unexpected', e);
+      setError(saveErrorMessage(classifySupabaseError(e)));
       setLoading(false);
     }
   }

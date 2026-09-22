@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { logWarn } from '@/lib/log';
+import { authErrorMessage } from '@/lib/save-errors';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,7 +23,8 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setError(error.message);
+      logWarn('auth.signIn', error.message, { code: error.code, status: error.status });
+      setError(authErrorMessage(error, 'signin'));
       setLoading(false);
       return;
     }

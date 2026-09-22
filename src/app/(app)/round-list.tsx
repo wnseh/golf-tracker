@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { logError } from '@/lib/log';
+import { classifySupabaseError, saveErrorMessage } from '@/lib/save-errors';
 import type { WeatherVal } from '@/lib/types';
 import { WEATHER_OPTIONS, WEATHER_LABELS, WEATHER_ICONS } from '@/lib/constants';
 
@@ -85,7 +87,8 @@ export function RoundList({ rounds: initialRounds }: RoundListProps) {
         .eq('id', editId);
 
       if (err) {
-        setError(err.message);
+        logError('round.update', err, { roundId: editId });
+        setError(saveErrorMessage(classifySupabaseError(err)));
         return;
       }
 
@@ -105,6 +108,9 @@ export function RoundList({ rounds: initialRounds }: RoundListProps) {
       );
       closeEdit();
       router.refresh();
+    } catch (e) {
+      logError('round.update.unexpected', e, { roundId: editId });
+      setError(saveErrorMessage(classifySupabaseError(e)));
     } finally {
       setLoading(false);
     }
@@ -122,12 +128,16 @@ export function RoundList({ rounds: initialRounds }: RoundListProps) {
       const supabase = createClient();
       const { error: err } = await supabase.from('rounds').delete().eq('id', editId);
       if (err) {
-        setError(err.message);
+        logError('round.delete', err, { roundId: editId });
+        setError(saveErrorMessage(classifySupabaseError(err)));
         return;
       }
       setRounds((prev) => prev.filter((r) => r.id !== editId));
       closeEdit();
       router.refresh();
+    } catch (e) {
+      logError('round.delete.unexpected', e, { roundId: editId });
+      setError(saveErrorMessage(classifySupabaseError(e)));
     } finally {
       setLoading(false);
     }
@@ -329,7 +339,7 @@ export function RoundList({ rounds: initialRounds }: RoundListProps) {
             </div>
 
             {error && (
-              <p className="text-sm text-red bg-red-dim rounded-lg px-3 py-2">{error}</p>
+              <p data-testid="edit-round-error" className="text-sm text-red bg-red-dim rounded-lg px-3 py-2">{error}</p>
             )}
 
             <div className="flex gap-3 pt-2">

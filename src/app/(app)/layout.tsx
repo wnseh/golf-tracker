@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { logError, isSessionMissing } from '@/lib/log';
 import { BottomNav } from '@/components/ui/bottom-nav';
 
 export default async function AppLayout({
@@ -8,7 +9,8 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error && !isSessionMissing(error)) logError('auth.getUser', error, { where: 'app-layout' });
 
   if (!user) {
     redirect('/login');

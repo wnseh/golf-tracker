@@ -4,6 +4,7 @@
  */
 
 import { createClient } from './supabase/server';
+import { logError } from './log';
 import type { Shot, HoleLenBucket } from './types';
 import { holeLenMid } from './constants';
 import { holeStats, roundStats, isLedgerComplete, type HoleStats, type RoundStats } from './stats';
@@ -49,6 +50,15 @@ export async function loadRoundSummaries(userId: string): Promise<RoundSummary[]
       .eq('user_id', userId),
   ]);
 
+  // 부분 데이터로 stat/SG를 내면 "미기록은 N/A" 규칙을 어기고 틀린 숫자가 나온다 → 실패는 실패로 (error.tsx)
+  if (roundsRes.error) {
+    logError('load-rounds.rounds', roundsRes.error, { userId });
+    throw new Error('라운드를 불러오지 못했습니다');
+  }
+  if (holesRes.error) {
+    logError('load-rounds.holes', holesRes.error, { userId });
+    throw new Error('홀 데이터를 불러오지 못했습니다');
+  }
   const rounds = (roundsRes.data ?? []) as RawRound[];
   const holes = (holesRes.data ?? []) as RawHole[];
 

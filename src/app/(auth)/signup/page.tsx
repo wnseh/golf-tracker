@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { logWarn } from '@/lib/log';
+import { authErrorMessage } from '@/lib/save-errors';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -21,7 +23,8 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      setError(error.message);
+      logWarn('auth.signUp', error.message, { code: error.code, status: error.status });
+      setError(authErrorMessage(error, 'signup'));
       setLoading(false);
       return;
     }
@@ -62,7 +65,7 @@ export default function SignupPage() {
         />
       </div>
 
-      {error && <p className="text-sm text-red">{error}</p>}
+      {error && <p data-testid="signup-error" className="text-sm text-red">{error}</p>}
 
       <button
         type="submit"
