@@ -16,7 +16,7 @@
  *   putt     = 그린 위
  */
 
-import type { Shot, StartLie } from './types';
+import type { Shot, StartLie, Strike } from './types';
 import { DIST_MID } from './constants';
 
 /* ── 기준표 ────────────────────────────────────────────────────────────── */
@@ -117,9 +117,15 @@ export interface ShotSG {
   startLie:  StartLie;
   startDist: number | null;   // m, 홀 길이 미입력 시 첫 샷은 null
   value:     number | null;   // startDist가 null이면 null
+  strike:    Strike | null;   // 컨택 (퍼트·미기록은 null)
 }
 
 export type SgByCategory = Record<SgCategory, number>;
+
+/** 컨택별 SG 분리: 카테고리마다 SG 합과 샷 수. 'na' = 컨택 미기록(퍼트 포함). 18홀 환산 없음(합). */
+export type StrikeKey = Strike | 'na';
+export interface StrikeSplit { sg: SgByCategory; shots: SgByCategory }
+export type SgByStrike = Record<StrikeKey, StrikeSplit>;
 
 export interface HoleSG {
   shots:     ShotSG[];
@@ -127,10 +133,26 @@ export interface HoleSG {
   total:     number;
   counted:   number;   // value가 있는 샷 수
   skipped:   number;   // 홀 길이 미입력 등으로 계산 못 한 샷 수
+  byStrike:  SgByStrike;
 }
 
 export function emptySgByCategory(): SgByCategory {
   return { tee: 0, approach: 0, short: 0, putt: 0 };
+}
+export function emptySgByStrike(): SgByStrike {
+  return {
+    ok:   { sg: emptySgByCategory(), shots: emptySgByCategory() },
+    miss: { sg: emptySgByCategory(), shots: emptySgByCategory() },
+    na:   { sg: emptySgByCategory(), shots: emptySgByCategory() },
+  };
+}
+function addStrike(into: SgByStrike, from: SgByStrike) {
+  for (const k of ['ok', 'miss', 'na'] as StrikeKey[]) {
+    for (const c of SG_CATEGORIES) {
+      into[k].sg[c] += from[k].sg[c];
+      into[k].shots[c] += from[k].shots[c];
+    }
+  }
 }
 
 /**
@@ -140,6 +162,7 @@ export function emptySgByCategory(): SgByCategory {
 export function holeSG(par: number, holeLenMid: number | null, shots: Shot[]): HoleSG {
   const out: ShotSG[] = [];
   const byCat = emptySgByCategory();
+  const byStrike = emptySgByStrike();
   let total = 0, counted = 0, skipped = 0;
 
   let startLie: StartLie = 'TEE';
@@ -152,6 +175,12 @@ export function holeSG(par: number, holeLenMid: number | null, shots: Shot[]): H
       : (startDist ?? Infinity) > 50 ? 'approach'
       : 'short';
 
+    // 퍼트는 컨택을 세지 않는다 (입력 UI도 숨김). 그 외는 기록값, 없으면 na.
+    const strike: Strike | null =
+      category === 'putt' ? null
+      : shot.strike === 'ok' || shot.strike === 'miss' ? shot.strike
+      : null;
+
     let value: number | null = null;
     if (startDist !== null) {
       const startE = expectedStrokes(startLie, startDist);
@@ -162,11 +191,14 @@ export function holeSG(par: number, holeLenMid: number | null, shots: Shot[]): H
       byCat[category] += value;
       total += value;
       counted++;
+      const key: StrikeKey = strike ?? 'na';
+      byStrike[key].sg[category] += value;
+      byStrike[key].shots[category] += 1;
     } else {
       skipped++;
     }
 
-    out.push({ index: i, category, startLie, startDist, value });
+    out.push({ index: i, category, startLie, startDist, value, strike });
 
     if (shot.lie !== 'HOLED' && shot.dist !== null) {
       startLie = shot.lie;
@@ -174,7 +206,7 @@ export function holeSG(par: number, holeLenMid: number | null, shots: Shot[]): H
     }
   });
 
-  return { shots: out, byCat, total, counted, skipped };
+  return { shots: out, byCat, total, counted, skipped, byStrike };
 }
 
 export interface RoundSG {
@@ -185,17 +217,20 @@ export interface RoundSG {
   holesCounted:  number;         // 원장 완성 홀 수
   shotsCounted:  number;
   shotsSkipped:  number;
+  byStrike:      SgByStrike;     // 라운드 합 (환산 없음)
 }
 
 export function roundSG(holeSgs: HoleSG[]): RoundSG | null {
   if (holeSgs.length === 0) return null;
   const byCat = emptySgByCategory();
+  const byStrike = emptySgByStrike();
   let total = 0, shotsCounted = 0, shotsSkipped = 0;
   for (const h of holeSgs) {
     for (const c of SG_CATEGORIES) byCat[c] += h.byCat[c];
     total += h.total;
     shotsCounted += h.counted;
     shotsSkipped += h.skipped;
+    addStrike(byStrike, h.byStrike);
   }
   const scale = 18 / holeSgs.length;
   const byCatPer18 = emptySgByCategory();
@@ -205,7 +240,15 @@ export function roundSG(holeSgs: HoleSG[]): RoundSG | null {
     byCatPer18, totalPer18: total * scale,
     holesCounted: holeSgs.length,
     shotsCounted, shotsSkipped,
+    byStrike,
   };
+}
+
+/** 여러 라운드의 컨택별 SG 합 (샷 단위 비교용, 환산 없음) */
+export function sumStrike(rounds: RoundSG[]): SgByStrike {
+  const out = emptySgByStrike();
+  for (const r of rounds) addStrike(out, r.byStrike);
+  return out;
 }
 
 /** 여러 라운드의 18홀 환산 SG 평균 */

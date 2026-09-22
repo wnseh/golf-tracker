@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { expectedStrokes, holeSG, roundSG, averageSG } from '../../src/lib/sg';
+import { expectedStrokes, holeSG, roundSG, averageSG, sumStrike } from '../../src/lib/sg';
 import type { Shot } from '../../src/lib/types';
 
 test.describe('expectedStrokes (Broadie 투어 기준표)', () => {
@@ -77,5 +77,38 @@ test.describe('roundSG / averageSG', () => {
     expect(avg.total).toBeCloseTo(r.totalPer18, 6);
     expect(roundSG([])).toBeNull();
     expect(averageSG([])).toBeNull();
+  });
+});
+
+test.describe('컨택별 SG 분리 (byStrike)', () => {
+  const shots: Shot[] = [
+    { lie: 'RO', dist: '150-200', pen: false, strike: 'miss' },   // tee, 미스
+    { lie: 'GR', dist: '5-10', pen: false, strike: 'ok' },        // approach, ok
+    { lie: 'GR', dist: '0-1', pen: false, strike: 'ok' },         // putt — 컨택은 무시(na)
+    { lie: 'HOLED', dist: null, pen: false },                     // putt, strike 필드 없음
+  ];
+  test('퍼트는 항상 na, 나머지는 기록값대로. 합은 byCat과 일치', () => {
+    const h = holeSG(4, 375, shots);
+    expect(h.shots.map((s) => s.strike)).toEqual(['miss', 'ok', null, null]);
+    expect(h.byStrike.miss.shots).toEqual({ tee: 1, approach: 0, short: 0, putt: 0 });
+    expect(h.byStrike.ok.shots).toEqual({ tee: 0, approach: 1, short: 0, putt: 0 });
+    expect(h.byStrike.na.shots).toEqual({ tee: 0, approach: 0, short: 0, putt: 2 });
+    expect(h.byStrike.miss.sg.tee).toBeCloseTo(h.byCat.tee, 9);
+    expect(h.byStrike.ok.sg.approach).toBeCloseTo(h.byCat.approach, 9);
+    expect(h.byStrike.na.sg.putt).toBeCloseTo(h.byCat.putt, 9);
+  });
+  test('홀 길이 없으면 첫 샷은 컨택 집계에서도 빠진다', () => {
+    const h = holeSG(4, null, shots);
+    expect(h.byStrike.miss.shots.tee).toBe(0);
+    expect(h.skipped).toBe(1);
+  });
+  test('roundSG·sumStrike는 단순 합 (환산 없음)', () => {
+    const h = holeSG(4, 375, shots);
+    const r = roundSG([h, h])!;
+    expect(r.byStrike.miss.shots.tee).toBe(2);
+    expect(r.byStrike.miss.sg.tee).toBeCloseTo(h.byCat.tee * 2, 9);
+    const sum = sumStrike([r, r]);
+    expect(sum.miss.shots.tee).toBe(4);
+    expect(sum.ok.shots.approach).toBe(4);
   });
 });

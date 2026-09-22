@@ -38,7 +38,7 @@ test.describe('isLedgerComplete / derivedScore', () => {
 
 test.describe('holeStats', () => {
   test('파4 GIR', () => {
-    expect(holeStats(4, 4, par4Gir)).toEqual({ par: 4, score: 4, complete: true, fir: true, gir: true, putts: 2, penalties: 0, scramble: null });
+    expect(holeStats(4, 4, par4Gir)).toEqual({ par: 4, score: 4, complete: true, fir: true, gir: true, putts: 2, penalties: 0, scramble: null, mishits: { hit: 0, den: 0 } });
   });
   test('파3 벌타: FIR 없음, GIR ✗, 스크램블 실패', () => {
     expect(holeStats(3, 4, par3Pen)).toMatchObject({ fir: null, gir: false, putts: 1, penalties: 1, scramble: false });
@@ -57,7 +57,7 @@ test.describe('holeStats', () => {
     expect(holeStats(4, 4, shots)).toMatchObject({ gir: false, putts: 1, scramble: true });
   });
   test('원장 없음(스코어만) → 전부 null', () => {
-    expect(holeStats(4, 6, null)).toEqual({ par: 4, score: 6, complete: false, fir: null, gir: null, putts: null, penalties: null, scramble: null });
+    expect(holeStats(4, 6, null)).toEqual({ par: 4, score: 6, complete: false, fir: null, gir: null, putts: null, penalties: null, scramble: null, mishits: { hit: 0, den: 0 } });
   });
 });
 
@@ -86,6 +86,28 @@ test.describe('roundStats', () => {
   });
   test('원장 없는 라운드는 Riccio null', () => {
     expect(roundStats([holeStats(4, 5, null)], 18).riccio).toBeNull();
+  });
+  test('컨택: strike 없는 이전 데이터는 den 0(N/A), ok/miss만 센다, 퍼트는 무시', () => {
+    expect(holeStats(4, 4, par4Gir).mishits).toEqual({ hit: 0, den: 0 });
+    const withStrike: Shot[] = [
+      { lie: 'RO', dist: '100-150', pen: false, strike: 'miss' },
+      { lie: 'GR', dist: '5-10', pen: false, strike: 'ok' },
+      { lie: 'GR', dist: '0-1', pen: false, strike: null },
+      { lie: 'HOLED', dist: null, pen: false, strike: null },
+    ];
+    expect(holeStats(4, 4, withStrike).mishits).toEqual({ hit: 1, den: 2 });
+    const r2 = roundStats([holeStats(4, 4, withStrike), holeStats(4, 4, par4Gir), holeStats(4, 6, null)], 9);
+    expect(r2.mishits).toEqual({ hit: 1, den: 2 });
+    expect(periodStats([r2, r2]).mishits).toEqual({ hit: 2, den: 4 });
+  });
+  test('더블보기는 저장 홀 전체(스코어만 포함), 3퍼트는 완성 홀 기준', () => {
+    // 파4 4, 파3 4(+1), 파5 5, 파4 6(+2, 스코어만) → 더블 이상 1/4
+    expect(r.doubles).toEqual({ hit: 1, den: 4 });
+    expect(r.doublesPer18).toBeCloseTo(4.5, 5);
+    expect(r.threePutts).toEqual({ hit: 0, den: 3 });
+    const empty = roundStats([], 18);
+    expect(empty.doublesPer18).toBeNull();
+    expect(empty.threePutts).toEqual({ hit: 0, den: 0 });
   });
 });
 

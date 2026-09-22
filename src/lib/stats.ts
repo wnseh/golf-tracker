@@ -42,11 +42,12 @@ export interface HoleStats {
   putts:     number | null;
   penalties: number | null;
   scramble:  boolean | null;   // GIR 미스 홀에서만 값 있음 (Elliott의 Up & Down)
+  mishits:   Ratio;            // hit = 미스 컨택 샷, den = 컨택이 기록된 샷 (퍼트·미기록 제외)
 }
 
 export function holeStats(par: number, score: number, shots: Shot[] | null | undefined): HoleStats {
   if (!isLedgerComplete(shots)) {
-    return { par, score, complete: false, fir: null, gir: null, putts: null, penalties: null, scramble: null };
+    return { par, score, complete: false, fir: null, gir: null, putts: null, penalties: null, scramble: null, mishits: { hit: 0, den: 0 } };
   }
 
   const fir = par >= 4 ? shots[0].lie === 'FW' : null;
@@ -64,7 +65,10 @@ export function holeStats(par: number, score: number, shots: Shot[] | null | und
   const penalties = shots.filter((s) => s.pen).length;
   const scramble = gir ? null : score <= par;
 
-  return { par, score, complete: true, fir, gir, putts, penalties, scramble };
+  const recorded = shots.filter((s) => s.strike === 'ok' || s.strike === 'miss');
+  const mishits: Ratio = { hit: recorded.filter((s) => s.strike === 'miss').length, den: recorded.length };
+
+  return { par, score, complete: true, fir, gir, putts, penalties, scramble, mishits };
 }
 
 /* ── 라운드 단위 ───────────────────────────────────────────────────────── */
@@ -92,6 +96,10 @@ export interface RoundStats {
   puttsPer18:     number | null;
   penalties:      { total: number; holes: number };
   penaltiesPer18: number | null;
+  doubles:        Ratio;            // 더블보기 이상 홀 / 저장 홀 (스코어만 입력한 홀 포함)
+  doublesPer18:   number | null;
+  threePutts:     Ratio;            // 3퍼트 이상 홀 / 원장 완성 홀
+  mishits:        Ratio;            // 미스 컨택 샷 / 컨택 기록 샷 (완성 홀)
   riccio:         RiccioEstimate | null;
 }
 
@@ -123,6 +131,13 @@ export function roundStats(holes: HoleStats[], holesPlanned: number): RoundStats
   };
   const penaltiesPer18 = holesComplete > 0 ? penalties.total * (18 / holesComplete) : null;
 
+  const doubles: Ratio = { hit: holes.filter((h) => h.score - h.par >= 2).length, den: holesPlayed };
+  const doublesPer18 = holesPlayed > 0 ? doubles.hit * (18 / holesPlayed) : null;
+
+  const threePutts: Ratio = { hit: complete.filter((h) => (h.putts ?? 0) >= 3).length, den: holesComplete };
+  const mishits: Ratio = complete.reduce(
+    (acc, h) => ({ hit: acc.hit + h.mishits.hit, den: acc.den + h.mishits.den }), { hit: 0, den: 0 });
+
   const riccio = holesComplete > 0 ? riccioEstimate(gir, putts) : null;
 
   return {
@@ -131,6 +146,9 @@ export function roundStats(holes: HoleStats[], holesPlanned: number): RoundStats
     fir, gir, scramble,
     putts, puttsPer18,
     penalties, penaltiesPer18,
+    doubles, doublesPer18,
+    threePutts,
+    mishits,
     riccio,
   };
 }
@@ -160,6 +178,9 @@ export interface PeriodStats {
   scramble:        Ratio;
   avgPutts:        number | null;   // 라운드별 puttsPer18 평균
   avgPenalties:    number | null;
+  avgDoubles:      number | null;   // 라운드별 doublesPer18 평균 (스코어만 입력한 홀 포함)
+  threePutts:      Ratio;           // 원장 완성 홀 합산
+  mishits:         Ratio;           // 미스 컨택 샷 / 컨택 기록 샷
   riccio:          RiccioEstimate | null;   // 합산 GIR/퍼트 기준
   ledgerCoverage:  number | null;   // 원장 완성 홀 / 저장 홀
 }
@@ -195,6 +216,9 @@ export function periodStats(rounds: RoundStats[]): PeriodStats {
     scramble: sumRatio((r) => r.scramble),
     avgPutts: avg(withLedger.map((r) => r.puttsPer18)),
     avgPenalties: avg(withLedger.map((r) => r.penaltiesPer18)),
+    avgDoubles: avg(played.map((r) => r.doublesPer18)),
+    threePutts: sumRatio((r) => r.threePutts),
+    mishits: sumRatio((r) => r.mishits),
     riccio: riccioEstimate(gir, putts),
     ledgerCoverage: holesPlayedAll > 0 ? holesCompleteAll / holesPlayedAll : null,
   };

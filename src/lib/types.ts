@@ -20,11 +20,19 @@ export type HoleLenBucket =
   | 'p4:<300' | 'p4:300-350' | 'p4:350-400' | 'p4:400+'
   | 'p5:<450' | 'p5:450-500' | 'p5:500+';
 
-/** 원장 항목 하나 = 샷 하나. lie/dist는 "친 후" 위치. pen은 이 샷에 붙은 1벌타. */
+/** 컨택. ok = 정상, miss = 뒤땅·탑·힐·토 등 미스. 퍼트는 기록하지 않는다(null). */
+export type Strike = 'ok' | 'miss';
+
+/**
+ * 원장 항목 하나 = 샷 하나. lie/dist는 "친 후" 위치. pen은 이 샷에 붙은 1벌타.
+ * strike는 원장 입력 시 퍼트가 아니면 'ok'로 시작하고 미스 토글로 바꾼다.
+ * 필드가 없거나 null이면 미기록(N/A) — 이 필드 도입 전 데이터와 퍼트.
+ */
 export interface Shot {
-  lie:  Lie;
-  dist: DistBucket | null;   // HOLED이면 null
-  pen:  boolean;
+  lie:     Lie;
+  dist:    DistBucket | null;   // HOLED이면 null
+  pen:     boolean;
+  strike?: Strike | null;
 }
 
 /* ── 홀 / 라운드 ─────────────────────────────────────────── */
