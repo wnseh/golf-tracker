@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer,
 } from 'recharts';
 import type { RoundSummary } from '@/lib/load-rounds';
-import { periodStats, type PeriodStats } from '@/lib/stats';
-import { averageSG, SG_CATEGORIES, SG_CATEGORY_LABELS, type SgCategory, type RoundSG } from '@/lib/sg';
-import { PeriodFilter, getPeriodCutoff, type Period } from '@/components/stats/period-filter';
+import { periodStats, type PeriodStats, type Ratio } from '@/lib/stats';
+import { averageSG, sumStrike, SG_CATEGORIES, SG_CATEGORY_LABELS, type SgCategory, type RoundSG } from '@/lib/sg';
+import { PeriodFilter, getPeriodCutoff, PERIOD_LABELS, type Period } from '@/components/stats/period-filter';
+import { RoundVsPeriod } from '@/components/stats/round-vs-period';
 import { ElliottTiles } from '@/components/stats/elliott-tiles';
+import { SG_GUIDE, type InsightContext, type InsightScope } from '@/lib/insights';
+import { SgInsightModal } from './sg-insight-modal';
 
 /* ── 색상: recharts는 CSS 변수를 못 읽어 globals.css 토큰을 하드코딩 ── */
 const C = {
@@ -38,6 +41,21 @@ function fmtShort(iso: string) {
 }
 function signed(v: number, digits = 1) {
   return `${v > 0 ? '+' : ''}${v.toFixed(digits)}`;
+}
+
+/** ⓘ 버튼 — SG 해설 모달을 연다 */
+function InfoButton({ scope, onInfo, label }: { scope: InsightScope; onInfo: (s: InsightScope) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      data-testid={`sg-info-${scope}`}
+      onClick={() => onInfo(scope)}
+      aria-label={`${label} 해설`}
+      className="w-5 h-5 rounded-full border border-border text-text3 text-[10px] font-semibold leading-none flex items-center justify-center hover:text-text hover:border-text3"
+    >
+      i
+    </button>
+  );
 }
 
 function RiccioCard({ stats }: { stats: PeriodStats }) {
@@ -166,7 +184,7 @@ function SgBarTooltip({ active, payload }: { active?: boolean; payload?: Array<{
   );
 }
 
-function SgCard({ sgRounds }: { sgRounds: RoundSG[] }) {
+function SgCard({ sgRounds, mishits, onInfo }: { sgRounds: RoundSG[]; mishits: Ratio; onInfo: (s: InsightScope) => void }) {
   const avg = averageSG(sgRounds);
   if (!avg) {
     return (
@@ -181,8 +199,11 @@ function SgCard({ sgRounds }: { sgRounds: RoundSG[] }) {
 
   return (
     <div data-testid="sg-card" className="rounded-xl border border-border bg-surface p-4 space-y-3">
-      <div className="flex items-baseline justify-between">
-        <p className="text-sm font-semibold">Strokes Gained vs Tour</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold">Strokes Gained vs Tour</p>
+          <InfoButton scope="total" onInfo={onInfo} label="Strokes Gained 전체" />
+        </div>
         <p className={`font-mono text-sm font-semibold ${avg.total >= 0 ? 'text-accent' : 'text-red'}`}>{signed(avg.total)} / 라운드</p>
       </div>
       <ResponsiveContainer width="100%" height={150}>
@@ -199,28 +220,31 @@ function SgCard({ sgRounds }: { sgRounds: RoundSG[] }) {
       </ResponsiveContainer>
       <div className="grid grid-cols-4 gap-1 text-center">
         {data.map((d) => (
-          <div key={d.cat}>
-            <p className="text-[10px] text-text3">{d.label}</p>
+          <button
+            key={d.cat}
+            type="button"
+            data-testid={`sg-info-${d.cat}`}
+            onClick={() => onInfo(d.cat)}
+            aria-label={`${d.label} 해설`}
+            className="rounded-lg py-1 hover:bg-surface2"
+          >
+            <p className="text-[10px] text-text3">{d.label} <span className="text-text3/60">ⓘ</span></p>
             <p className={`font-mono text-xs font-semibold ${d.value >= 0 ? 'text-accent' : 'text-red'}`}>{signed(d.value, 2)}</p>
-          </div>
+          </button>
         ))}
       </div>
       <p className="text-[10px] text-text3 leading-relaxed">
         PGA Tour 평균 대비 (Broadie 기준표). 값은 대부분 음수이니 카테고리 간 상대 비교로 읽으세요.
         {' '}{avg.rounds}라운드 · 원장 {holes}홀 · 18홀 환산.
       </p>
+      <p data-testid="sg-mishits" className="text-[10px] text-text3">
+        미스 컨택 {mishits.den > 0 ? `${mishits.hit}/${mishits.den} 샷 (${Math.round((mishits.hit / mishits.den) * 100)}%)` : 'N/A'} · 퍼트 제외
+      </p>
     </div>
   );
 }
 
-const LEAK_ACTION: Record<SgCategory, string> = {
-  tee: '티샷에서 가장 많이 잃습니다. 페어웨이 안착과 OB·해저드 회피가 우선입니다. 드라이버 대신 한 클럽 짧게 잡는 것도 방법입니다.',
-  approach: '어프로치(50m 초과)에서 가장 많이 잃습니다. 그린 적중률과 남은 거리를 줄이는 데 집중하세요. 핀보다 그린 중앙을 노리세요.',
-  short: '숏게임(50m 이내)에서 가장 많이 잃습니다. 첫 퍼트를 2m 안에 남기는 연습이 가장 효과적입니다.',
-  putt: '퍼팅에서 가장 많이 잃습니다. 롱퍼트 거리감과 1~2m 퍼트 성공률을 점검하세요.',
-};
-
-function LeakCards({ sgRounds }: { sgRounds: RoundSG[] }) {
+function LeakCards({ sgRounds, onInfo }: { sgRounds: RoundSG[]; onInfo: (s: InsightScope) => void }) {
   const avg = averageSG(sgRounds);
   if (!avg) return null;
   const ranked = SG_CATEGORIES
@@ -242,8 +266,16 @@ function LeakCards({ sgRounds }: { sgRounds: RoundSG[] }) {
           </p>
           <div className="rounded-lg bg-surface2 border border-border p-3">
             <p className="text-[10px] font-semibold text-text3 uppercase tracking-wide mb-1">Action</p>
-            <p className="text-sm text-text2 leading-relaxed">{LEAK_ACTION[l.cat]}</p>
+            <p className="text-sm text-text2 leading-relaxed">{SG_GUIDE[l.cat].action}</p>
           </div>
+          <button
+            type="button"
+            data-testid="leak-detail"
+            onClick={() => onInfo(l.cat)}
+            className="text-xs text-blue hover:underline"
+          >
+            읽는 법과 내 상황 보기 →
+          </button>
         </div>
       ))}
     </div>
@@ -281,6 +313,39 @@ export function AnalysisClient({ rounds }: { rounds: RoundSummary[] }) {
 
   const sgRounds = useMemo(() => filtered.map((r) => r.sg).filter((s): s is RoundSG => s !== null), [filtered]);
 
+  // Round vs 기간: 기본은 기간 내 최근 라운드
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
+  const rvpRounds = useMemo(
+    () => [...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [filtered]);
+  const rvpRound = rvpRounds.find((r) => r.id === selectedRoundId) ?? rvpRounds[0] ?? null;
+  const sgPeriodAvg = useMemo(() => averageSG(sgRounds)?.total ?? null, [sgRounds]);
+
+  const [insightScope, setInsightScope] = useState<InsightScope | null>(null);
+  const closeInsight = useCallback(() => setInsightScope(null), []);
+
+  // 해설 모달 입력: SG 평균 + Elliott/Riccio. 계산은 전부 lib에서, 여기선 모으기만.
+  const insightCtx = useMemo<InsightContext | null>(() => {
+    const avg = averageSG(sgRounds);
+    if (!avg) return null;
+    return {
+      byCat: avg.byCat,
+      total: avg.total,
+      rounds: avg.rounds,
+      holes: sgRounds.reduce((s, r) => s + r.holesCounted, 0),
+      fir: stats.fir,
+      gir: stats.gir,
+      scramble: stats.scramble,
+      threePutts: stats.threePutts,
+      avgPutts: stats.avgPutts,
+      avgPenalties: stats.avgPenalties,
+      avgDoubles: stats.avgDoubles,
+      mishits: stats.mishits,
+      strike: sumStrike(sgRounds),
+      riccio: stats.riccio,
+    };
+  }, [sgRounds, stats]);
+
   if (played.length === 0) {
     return (
       <div className="space-y-4">
@@ -305,6 +370,17 @@ export function AnalysisClient({ rounds }: { rounds: RoundSummary[] }) {
       ) : (
         <>
           <ElliottTiles stats={stats} />
+          {rvpRound && (
+            <RoundVsPeriod
+              rounds={rvpRounds}
+              selectedId={rvpRound.id}
+              onSelect={setSelectedRoundId}
+              period={stats}
+              periodLabel={PERIOD_LABELS[period]}
+              sgRound={rvpRound.sg?.totalPer18 ?? null}
+              sgPeriod={sgPeriodAvg}
+            />
+          )}
           <RiccioCard stats={stats} />
 
           <div data-testid="trend-card" className="rounded-xl border border-border bg-surface p-4 space-y-5">
@@ -315,8 +391,11 @@ export function AnalysisClient({ rounds }: { rounds: RoundSummary[] }) {
 
           {sgRounds.length >= MIN_ROUNDS_FOR_SG ? (
             <>
-              <SgCard sgRounds={sgRounds} />
-              <LeakCards sgRounds={sgRounds} />
+              <SgCard sgRounds={sgRounds} mishits={stats.mishits} onInfo={setInsightScope} />
+              <LeakCards sgRounds={sgRounds} onInfo={setInsightScope} />
+              {insightScope && insightCtx && (
+                <SgInsightModal scope={insightScope} ctx={insightCtx} onClose={closeInsight} />
+              )}
             </>
           ) : (
             <div data-testid="sg-needs-more" className="rounded-xl border border-border bg-surface p-5 text-center">

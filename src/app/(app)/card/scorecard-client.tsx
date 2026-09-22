@@ -5,16 +5,12 @@ import type { RoundSummary, HoleRow } from '@/lib/load-rounds';
 import { periodStats } from '@/lib/stats';
 import { PeriodFilter, getPeriodCutoff, type Period } from '@/components/stats/period-filter';
 import { ElliottTiles } from '@/components/stats/elliott-tiles';
+import { vsParColor } from '@/components/input/score-input';
 
 /* ── helpers ──────────────────────────────────────────────── */
 
-function scoreDiffClass(diff: number): string {
-  if (diff <= -2) return 'text-blue';
-  if (diff === -1) return 'text-yellow';
-  if (diff === 0) return 'text-text2';
-  if (diff === 1) return 'text-text';
-  return 'text-red';
-}
+/** 스코어 색은 홀 입력 화면(score-input.tsx)과 동일 규칙 */
+const scoreDiffClass = vsParColor;
 function scoreDiffLabel(diff: number): string {
   if (diff === 0) return 'E';
   return diff > 0 ? `+${diff}` : String(diff);
