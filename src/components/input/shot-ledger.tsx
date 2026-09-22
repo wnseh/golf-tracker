@@ -9,6 +9,18 @@ interface ShotLedgerProps {
   onAdd: (shot: Shot) => void;
   onRemoveLast: () => void;
   onTogglePen: (index: number) => void;
+  onToggleStrike: (index: number) => void;
+  /** 샷별 SG vs Tour (sg.ts holeSG). 홀 길이 미입력이면 첫 샷은 null. 없으면 표시 안 함. */
+  shotSg?: (number | null)[];
+}
+
+function signed(v: number, digits = 2) {
+  return `${v > 0 ? '+' : ''}${v.toFixed(digits)}`;
+}
+
+/** 샷 i의 치기 전 라이 */
+function startLieOf(shots: Shot[], i: number): StartLie {
+  return i === 0 ? 'TEE' : (shots[i - 1].lie as StartLie);
 }
 
 /* 라이별 색상 — Tailwind 동적 클래스 금지, 정적 매핑 */
@@ -30,13 +42,16 @@ function distLabel(b: DistBucket): string {
   return b.endsWith('+') ? `${b.slice(0, -1)}m+` : `${b}m`;
 }
 
-export function ShotLedger({ shots, onAdd, onRemoveLast, onTogglePen }: ShotLedgerProps) {
+export function ShotLedger({ shots, onAdd, onRemoveLast, onTogglePen, onToggleStrike, shotSg }: ShotLedgerProps) {
   const [pendingLie, setPendingLie] = useState<Lie | null>(null);
   const complete = shots.length > 0 && shots[shots.length - 1].lie === 'HOLED';
 
+  // 다음 샷의 컨택 기본값: 퍼트(그린에서 치는 샷)는 기록 안 함, 나머지는 ok로 시작
+  const nextStrike = startLieOf(shots, shots.length) === 'GR' ? null : 'ok';
+
   function pickLie(lie: Lie) {
     if (lie === 'HOLED') {
-      onAdd({ lie: 'HOLED', dist: null, pen: false });
+      onAdd({ lie: 'HOLED', dist: null, pen: false, strike: nextStrike });
       setPendingLie(null);
       return;
     }
@@ -45,7 +60,7 @@ export function ShotLedger({ shots, onAdd, onRemoveLast, onTogglePen }: ShotLedg
 
   function pickDist(dist: DistBucket) {
     if (!pendingLie) return;
-    onAdd({ lie: pendingLie, dist, pen: false });
+    onAdd({ lie: pendingLie, dist, pen: false, strike: nextStrike });
     setPendingLie(null);
   }
 
@@ -60,8 +75,9 @@ export function ShotLedger({ shots, onAdd, onRemoveLast, onTogglePen }: ShotLedg
       {shots.length > 0 && (
         <div className="space-y-1.5">
           {shots.map((s, i) => {
-            const start: StartLie = i === 0 ? 'TEE' : (shots[i - 1].lie as StartLie);
+            const start = startLieOf(shots, i);
             const isLast = i === shots.length - 1;
+            const isPutt = start === 'GR';
             return (
               <div
                 key={i}
@@ -69,19 +85,44 @@ export function ShotLedger({ shots, onAdd, onRemoveLast, onTogglePen }: ShotLedg
                 data-lie={s.lie}
                 data-dist={s.dist ?? ''}
                 data-pen={s.pen ? 'true' : 'false'}
-                className="flex items-center gap-2 rounded-lg border border-border bg-surface3 px-3 py-2 text-sm"
+                data-strike={s.strike ?? ''}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-surface3 px-2.5 py-2 text-sm"
               >
                 <span className="w-5 font-mono text-xs text-text3">{i + 1}</span>
                 <span className={`text-xs ${lieTextClass[start]}`}>{LIE_LABELS[start]}</span>
                 <span className="text-text3 text-xs">→</span>
                 <span className={`font-medium ${lieTextClass[s.lie]}`}>{LIE_LABELS[s.lie]}</span>
-                {s.dist && <span className="font-mono text-xs text-text2">{distLabel(s.dist)}</span>}
+                {s.dist && <span className="font-mono text-xs text-text2 whitespace-nowrap">{distLabel(s.dist)}</span>}
                 <span className="flex-1" />
+                {shotSg && (
+                  <span
+                    data-testid={`shot-sg-${i}`}
+                    title="이 샷의 Strokes Gained vs Tour"
+                    className={`font-mono text-[11px] w-11 shrink-0 text-right ${
+                      shotSg[i] === null || shotSg[i] === undefined ? 'text-text3' : shotSg[i]! >= 0 ? 'text-accent' : 'text-red'
+                    }`}
+                  >
+                    {shotSg[i] === null || shotSg[i] === undefined ? '–' : signed(shotSg[i]!)}
+                  </span>
+                )}
+                {!isPutt && (
+                  <button
+                    type="button"
+                    data-testid={`strike-toggle-${i}`}
+                    onClick={() => onToggleStrike(i)}
+                    aria-pressed={s.strike === 'miss'}
+                    className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap shrink-0 transition ${
+                      s.strike === 'miss' ? 'border-yellow bg-yellow-dim text-yellow' : 'border-border text-text3 hover:border-border2'
+                    }`}
+                  >
+                    미스
+                  </button>
+                )}
                 <button
                   type="button"
                   data-testid={`pen-toggle-${i}`}
                   onClick={() => onTogglePen(i)}
-                  className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold transition ${
+                  className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap shrink-0 transition ${
                     s.pen ? 'border-red bg-red-dim text-red' : 'border-border text-text3 hover:border-border2'
                   }`}
                 >

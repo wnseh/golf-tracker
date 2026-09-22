@@ -5,7 +5,7 @@ import { expect, type Page } from '@playwright/test';
 import { e2eCourseName } from './env';
 
 export type Lie = 'FW' | 'RO' | 'SA' | 'TR' | 'GR' | 'HOLED';
-export interface ShotInput { lie: Lie; dist?: string; pen?: boolean }
+export interface ShotInput { lie: Lie; dist?: string; pen?: boolean; miss?: boolean }
 export interface HoleInput { par: 3 | 4 | 5; len?: string; shots: ShotInput[] }
 
 /** 새 라운드를 만들고 홀 입력 화면으로 이동. 라운드 id 를 돌려준다. */
@@ -33,6 +33,7 @@ export async function enterShots(page: Page, shots: ShotInput[]) {
     }
     await expect(page.getByTestId('shot-row')).toHaveCount(i + 1);
     if (s.pen) await page.getByTestId(`pen-toggle-${i}`).click();
+    if (s.miss) await page.getByTestId(`strike-toggle-${i}`).click();
   }
 }
 
@@ -72,6 +73,12 @@ export const PAR3_PENALTY: HoleInput = {
 export const PAR5_SCRAMBLE: HoleInput = {
   par: 5, len: 'p5:450-500',
   shots: [{ lie: 'RO', dist: '200+' }, { lie: 'FW', dist: '50-100' }, { lie: 'RO', dist: '0-20' }, { lie: 'GR', dist: '0-1' }, { lie: 'HOLED' }],
+};
+
+/** 파4 380m, 5타: 티샷 미스 컨택 RO 150-200 → FW 50-100 → GR 2-5 → GR 0-1 → HOLED. 미스 1/3 (퍼트 제외) */
+export const PAR4_MISHIT: HoleInput = {
+  par: 4, len: 'p4:350-400',
+  shots: [{ lie: 'RO', dist: '150-200', miss: true }, { lie: 'FW', dist: '50-100' }, { lie: 'GR', dist: '2-5' }, { lie: 'GR', dist: '0-1' }, { lie: 'HOLED' }],
 };
 
 /** 라운드 하나 만들고 1번 홀에 원장 하나 저장 (분석용 시드). */

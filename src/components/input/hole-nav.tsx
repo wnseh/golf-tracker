@@ -13,10 +13,11 @@ interface HoleNavProps {
   activeHole: number;
   savedHoles: Map<number, SavedHoleInfo>;
   dirtyHoles?: Set<number>;   // 편집했지만 저장 안 한 홀
+  pendingHoles?: Set<number>; // 저장 실패로 이 기기에 보관 중인 홀
   onSelect: (hole: number) => void;
 }
 
-export function HoleNav({ totalHoles, activeHole, savedHoles, dirtyHoles, onSelect }: HoleNavProps) {
+export function HoleNav({ totalHoles, activeHole, savedHoles, dirtyHoles, pendingHoles, onSelect }: HoleNavProps) {
   const scrollRef = useDragScroll<HTMLDivElement>();
 
   useEffect(() => {
@@ -32,7 +33,8 @@ export function HoleNav({ totalHoles, activeHole, savedHoles, dirtyHoles, onSele
       {Array.from({ length: totalHoles }, (_, i) => i + 1).map((n) => {
         const isActive = n === activeHole;
         const saved = savedHoles.get(n);
-        const dirty = dirtyHoles?.has(n) ?? false;
+        const pending = pendingHoles?.has(n) ?? false;
+        const dirty = !pending && (dirtyHoles?.has(n) ?? false);
         const diff = saved ? saved.score - saved.par : null;
 
         let dotColor = '';
@@ -47,25 +49,30 @@ export function HoleNav({ totalHoles, activeHole, savedHoles, dirtyHoles, onSele
             key={n}
             data-hole={n}
             data-testid={`hole-nav-${n}`}
-            data-state={isActive ? 'active' : dirty ? 'dirty' : saved ? 'saved' : 'empty'}
+            data-state={isActive ? 'active' : pending ? 'pending' : dirty ? 'dirty' : saved ? 'saved' : 'empty'}
             type="button"
             onClick={() => onSelect(n)}
             className={`relative shrink-0 w-9 h-9 rounded-full border text-xs font-medium transition ${
               isActive
                 ? 'border-accent bg-accent-dim text-accent'
-                : dirty
-                  ? 'border-yellow bg-surface2 text-text2'
-                  : saved
-                    ? 'border-border2 bg-surface2 text-text2'
-                    : 'border-border text-text2 hover:border-border2'
+                : pending
+                  ? 'border-red bg-surface2 text-text2'
+                  : dirty
+                    ? 'border-yellow bg-surface2 text-text2'
+                    : saved
+                      ? 'border-border2 bg-surface2 text-text2'
+                      : 'border-border text-text2 hover:border-border2'
             }`}
           >
             {n}
-            {saved && !dirty && (
+            {saved && !dirty && !pending && (
               <span className={`absolute bottom-0.5 right-0.5 w-[7px] h-[7px] rounded-full ${dotColor}`} />
             )}
             {dirty && (
               <span className="absolute bottom-0.5 right-0.5 w-[7px] h-[7px] rounded-full border border-yellow" />
+            )}
+            {pending && (
+              <span className="absolute bottom-0.5 right-0.5 w-[7px] h-[7px] rounded-full bg-red" />
             )}
           </button>
         );
