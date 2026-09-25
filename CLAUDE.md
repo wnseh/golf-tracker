@@ -54,6 +54,7 @@ src/lib/
 ├── types.ts                    # Shot / Lie / DistBucket / HoleLenBucket / HoleFormState / Round
 ├── constants.ts                # 라이·거리·홀길이 버킷 + 중간값, 날씨, empty-state, todayLocalISO
 ├── stats.ts                    # 순수: 원장 → 홀/라운드/기간 stat (Elliott 5 + Riccio)
+├── ledger.ts                   # 순수: 원장 위치·벌타 규칙 (HZ 드롭, OB 다시 치기/특설티). stats·sg·입력 UI 공용
 ├── sg.ts                       # 순수: Broadie 투어 기준표 + 샷별/라운드 SG
 ├── insights.ts                 # 순수: SG 해설 문구 + 상황 규칙 (Broadie/Sherman/Riccio 출처). DB 아님, 파일
 ├── load-rounds.ts              # 서버: rounds+holes 읽어 RoundSummary(stats+sg) 생성 (Card/Analysis 공용)
@@ -75,10 +76,12 @@ rounds  (id, user_id, course, date, tee, handicap, rating, holes,
 holes   (id, round_id, user_id, hole_num, par, score,
          hole_len_bucket, shots jsonb, notes, saved_at)   unique(round_id, hole_num)
 ```
-- `shots` = `Shot[]`, `Shot = { lie, dist, pen, strike? }`. lie/dist는 **친 후** 위치. null이면 "스코어만 입력" 홀.
+- `shots` = `Shot[]`, `Shot = { lie, dist, pen, strike?, driver? }`. lie/dist는 **친 후** 위치. null이면 "스코어만 입력" 홀.
 - `strike` = 컨택 `'ok' | 'miss' | null`. 원장 입력 시 퍼트가 아니면 `ok`로 시작, "미스" 토글로 변경. 필드 없음/null = N/A (도입 전 데이터, 퍼트).
-- 원장 완성 = 마지막이 HOLED + 앞 항목 전부 거리 있음. 완성 홀만 stat/SG 집계.
-- 스코어 = shots.length + 벌타 수 (원장 완성 시 파생).
+- `driver` = 파4·5 티에서 친 샷(OB 다시 치기 후 포함)만 `true`(드라이버) | `false`(끊어감). 첫 샷 입력 시 true로 시작, 파3이면 필드 없음. 없음/null = N/A.
+- `lie`에 `HZ`(+1, 다음 샷은 RO·그 거리), `OB`(거리 없음 = 다시 치기 +1·같은 자리 / 거리 있음 = 특설티·드롭 +2·FW) 포함. 규칙은 `ledger.ts`에만.
+- 원장 완성 = 마지막이 HOLED + 앞 항목 전부 거리 있음(OB 다시 치기 제외). 완성 홀만 stat/SG 집계.
+- 스코어 = shots.length + 벌타 수(수동 pen + HZ/OB 자동). GIR도 벌타 포함 타수로 판정.
 - holes 변경 시 트리거가 rounds.updated_at 갱신.
 
 ## 주요 규칙
@@ -97,7 +100,7 @@ holes   (id, round_id, user_id, hole_num, par, score,
   서버 읽기 실패는 빈 데이터로 넘기지 않고 throw → `error.tsx`. 홀 저장은 재시도 3회 → localStorage 보관 → 다음 저장 때 합쳐 저장.
 
 ## 상태 관리 패턴
-- 홀 입력: `useReducer`로 `HoleFormState` 관리. ADD_SHOT / REMOVE_LAST_SHOT / TOGGLE_PEN이 스코어를 자동 파생. TOGGLE_STRIKE는 스코어 무관
+- 홀 입력: `useReducer`로 `HoleFormState` 관리. ADD_SHOT / REMOVE_LAST_SHOT / TOGGLE_PEN이 스코어를 자동 파생. TOGGLE_STRIKE·TOGGLE_DRIVER는 스코어 무관
 - 홀 저장: 대기 홀 + 현재 홀을 배치 upsert → `withRetry` → 실패 시 `pending-holes`에 보관(네비 빨간 점, 버튼 "+미저장 N홀"). 마운트 시 복원
 - 홀 캐시: `useRef<Map<number, HoleFormState>>`로 홀 전환 시 미저장 편집 보존, 네비에 노란 링 표시
 - 데이터 흐름: Server Component(fetch) → Client(useReducer) → `holes` upsert(`onConflict: 'round_id,hole_num'`)

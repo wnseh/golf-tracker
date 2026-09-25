@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { expectedStrokes, holeSG, roundSG, averageSG, sumStrike } from '../../src/lib/sg';
+import { expectedStrokes, holeSG, roundSG, averageSG, sumStrike, sumTeeClub } from '../../src/lib/sg';
 import type { Shot } from '../../src/lib/types';
 
 test.describe('expectedStrokes (Broadie 투어 기준표)', () => {
@@ -110,5 +110,35 @@ test.describe('컨택별 SG 분리 (byStrike)', () => {
     const sum = sumStrike([r, r]);
     expect(sum.miss.shots.tee).toBe(4);
     expect(sum.ok.shots.approach).toBe(4);
+  });
+});
+
+test.describe('티샷 클럽별 SG 분리 (byTeeClub)', () => {
+  const withDriver = (driver: boolean | null | undefined): Shot[] => [
+    { lie: 'FW', dist: '100-150', pen: false, strike: 'ok', driver },
+    { lie: 'GR', dist: '2-5', pen: false, strike: 'ok' },
+    { lie: 'HOLED', dist: null, pen: false },
+  ];
+  test('파4 티샷만 driver/other/na로 나뉘고 SG는 byCat.tee와 같다', () => {
+    const d = holeSG(4, 375, withDriver(true));
+    expect(d.byTeeClub.driver.shots).toBe(1);
+    expect(d.byTeeClub.driver.sg).toBeCloseTo(d.byCat.tee, 9);
+    expect(d.byTeeClub.other.shots + d.byTeeClub.na.shots).toBe(0);
+    expect(holeSG(4, 375, withDriver(false)).byTeeClub.other.shots).toBe(1);
+    expect(holeSG(4, 375, withDriver(undefined)).byTeeClub.na.shots).toBe(1);
+    expect(holeSG(4, 375, withDriver(null)).byTeeClub.na.shots).toBe(1);
+  });
+  test('파3 첫 샷(어프로치)과 홀 길이 없는 티샷은 집계 안 됨', () => {
+    const p3 = holeSG(3, 135, withDriver(true)).byTeeClub;
+    expect(p3.driver.shots + p3.other.shots + p3.na.shots).toBe(0);
+    expect(holeSG(4, null, withDriver(true)).byTeeClub.driver.shots).toBe(0);
+  });
+  test('roundSG·sumTeeClub은 단순 합', () => {
+    const r = roundSG([holeSG(4, 375, withDriver(true)), holeSG(5, 475, withDriver(false)), holeSG(4, 325, withDriver(true))])!;
+    expect(r.byTeeClub.driver.shots).toBe(2);
+    expect(r.byTeeClub.other.shots).toBe(1);
+    const sum = sumTeeClub([r, r]);
+    expect(sum.driver.shots).toBe(4);
+    expect(sum.other.sg).toBeCloseTo(r.byTeeClub.other.sg * 2, 9);
   });
 });

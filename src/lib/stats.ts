@@ -12,23 +12,25 @@
  */
 
 import type { Shot } from './types';
+import { penaltyStrokes, startPositions, strokesBefore, isObReplay } from './ledger';
 
 /* ── 원장 판정 ─────────────────────────────────────────────────────────── */
 
-/** 마지막 항목이 HOLED이고, 그 앞 항목들은 전부 거리가 있는 원장 */
+/** 마지막 항목이 HOLED이고, 그 앞 항목들은 전부 거리가 있는 원장 (OB 다시 치기는 거리 없음이 정상) */
 export function isLedgerComplete(shots: Shot[] | null | undefined): shots is Shot[] {
   if (!shots || shots.length === 0) return false;
   const last = shots[shots.length - 1];
   if (last.lie !== 'HOLED') return false;
   for (let i = 0; i < shots.length - 1; i++) {
     const s = shots[i];
-    if (s.lie === 'HOLED' || s.dist === null) return false;
+    if (s.lie === 'HOLED' || (s.dist === null && !isObReplay(s))) return false;
   }
   return true;
 }
 
+/** 스코어 = 샷 수 + 벌타 (수동 pen + HZ/OB 자동) */
 export function derivedScore(shots: Shot[]): number {
-  return shots.length + shots.filter((s) => s.pen).length;
+  return shots.reduce((n, s) => n + 1 + penaltyStrokes(s), 0);
 }
 
 /* ── 홀 단위 ───────────────────────────────────────────────────────────── */
@@ -52,17 +54,16 @@ export function holeStats(par: number, score: number, shots: Shot[] | null | und
 
   const fir = par >= 4 ? shots[0].lie === 'FW' : null;
 
+  // GIR: 그린(또는 홀인)에 도달한 샷까지의 타수(벌타 포함)가 par − 2 이하
   const regulation = Math.max(0, par - 2);
-  const gir = shots
-    .slice(0, regulation)
-    .some((s) => s.lie === 'GR' || s.lie === 'HOLED');
+  const gir = shots.some((s, i) =>
+    (s.lie === 'GR' || s.lie === 'HOLED') && strokesBefore(shots, i) + 1 <= regulation);
 
-  let putts = 0;
-  for (let i = 1; i < shots.length; i++) {
-    if (shots[i - 1].lie === 'GR') putts++;
-  }
+  // 퍼트 = 그린에서 출발한 샷 수
+  const starts = startPositions(shots, null);
+  const putts = shots.filter((_, i) => starts[i]?.lie === 'GR').length;
 
-  const penalties = shots.filter((s) => s.pen).length;
+  const penalties = shots.reduce((n, s) => n + penaltyStrokes(s), 0);
   const scramble = gir ? null : score <= par;
 
   const recorded = shots.filter((s) => s.strike === 'ok' || s.strike === 'miss');

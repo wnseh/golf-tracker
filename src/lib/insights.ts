@@ -23,7 +23,7 @@
  * 표기 규칙: SG는 "vs Tour", 기대치는 "Riccio". "eSG", "Baseline", "핸디" 금지.
  */
 
-import { SG_CATEGORIES, SG_CATEGORY_LABELS, type SgCategory, type SgByCategory, type SgByStrike } from './sg';
+import { SG_CATEGORIES, SG_CATEGORY_LABELS, type SgCategory, type SgByCategory, type SgByStrike, type SgByTeeClub } from './sg';
 import type { Ratio, RiccioEstimate } from './stats';
 
 /* ── 입력 ─────────────────────────────────────────────────── */
@@ -42,6 +42,7 @@ export interface InsightContext {
   avgDoubles?:   number | null;     // 라운드당 더블보기 이상, 18홀 환산
   mishits?:      Ratio;             // 미스 컨택 샷 / 컨택 기록 샷
   strike?:       SgByStrike;        // 컨택별 SG 합 (sumStrike)
+  teeClub?:      SgByTeeClub;       // 티샷 드라이버/그 외 SG 합 (sumTeeClub)
   riccio?:       RiccioEstimate | null;
 }
 
@@ -87,7 +88,8 @@ export const SG_GUIDE: Record<SgCategory, CategoryGuide> = {
       '같은 거리라면 러프는 페어웨이보다 약 0.2타, 트러블은 약 1타 더 걸린다 (100yd 기준 FW 2.80 / RO 3.02 / TR 3.80). ' +
       'Sherman이 인용한 아마추어 데이터도 같다: 러프 −0.3, 나무 −1.1, 페어웨이 벙커 −1.4. ' +
       '페어웨이를 살짝 놓친 건 싸고, OB·해저드·트러블은 비싸다. ' +
-      '미스 컨택으로 표시한 샷과 정상 샷의 SG를 갈라 보면 원인이 타점인지 판단인지 나뉜다.',
+      '미스 컨택으로 표시한 샷과 정상 샷의 SG를 갈라 보면 원인이 타점인지 판단인지 나뉜다. ' +
+      '드라이버로 친 티샷과 끊어간 티샷의 샷당 SG를 비교하면 클럽 선택이 이득인지 보인다.',
     action:
       '티샷에서 가장 많이 잃습니다. 페어웨이 적중률이 아니라 "인플레이"가 목표입니다. ' +
       '트러블이 있는 쪽을 피해 조준하고, 필요하면 드라이버 대신 한 클럽 짧게 잡으세요.',
@@ -160,6 +162,8 @@ const STRIKE_MIN_SHOTS            = 10;   // 앱 기준: 컨택 기록 샷이 �
 const STRIKE_LOSS_SHARE_HIGH      = 0.6;  // 앱 기준: 미스 샷이 카테고리 손실의 이 비율 이상이면 "타점 문제"
 const STRIKE_LOSS_SHARE_LOW       = 0.3;  // 앱 기준: 이 비율 이하이면 "판단 문제"
 const MISHIT_RATE_WARN            = 0.25; // 앱 기준: 전체 미스율
+const TEE_CLUB_MIN_SHOTS          = 5;    // 앱 기준: 드라이버·그 외 각각 이보다 적으면 비교 생략
+const TEE_CLUB_GAP                = 0.15; // 앱 기준: 샷당 SG 차이가 이보다 작으면 "비슷"
 
 function signed(v: number, digits = 2) {
   return `${v > 0 ? '+' : ''}${v.toFixed(digits)}`;
@@ -190,6 +194,20 @@ function strikeOf(ctx: InsightContext, cat: SgCategory) {
     okAvg: okShots > 0 ? st.ok.sg[cat] / okShots : null,
     missAvg: missShots > 0 ? st.miss.sg[cat] / missShots : null,
     missLossShare: loss < 0 ? missLoss / loss : null,
+  };
+}
+
+/** 티샷 드라이버 vs 그 외 샷당 SG. 두 그룹 모두 최소 샷 수를 넘어야 비교 가능. */
+function teeClubOf(ctx: InsightContext) {
+  const tc = ctx.teeClub;
+  if (!tc) return null;
+  const d = tc.driver, o = tc.other;
+  const driverAvg = d.shots > 0 ? d.sg / d.shots : null;
+  const otherAvg = o.shots > 0 ? o.sg / o.shots : null;
+  const comparable = d.shots >= TEE_CLUB_MIN_SHOTS && o.shots >= TEE_CLUB_MIN_SHOTS;
+  return {
+    driverShots: d.shots, otherShots: o.shots, driverAvg, otherAvg, comparable,
+    gap: comparable ? driverAvg! - otherAvg! : null,   // + = 드라이버가 낫다
   };
 }
 
@@ -415,6 +433,57 @@ const RULES: Rule[] = [
       body: '벌타도 적고 페어웨이도 잘 맞히는데 잃는다면 거리입니다. Sherman: 페어웨이 75%에 200yd보다 55%에 더 멀리 보내는 쪽이 낫습니다. ' +
             '남은 거리 버킷이 자주 150m 이상이면 티샷 거리를 늘리는 쪽이 정확도보다 효율적입니다.',
     }),
+  },
+
+  {
+    id: 'tee-club-driver-better', scope: 'tee', tone: 'good', source: `${SRC_PG} · ${SRC_APP}`,
+    when: (ctx) => { const t = teeClubOf(ctx); return !!t && t.gap !== null && t.gap >= TEE_CLUB_GAP; },
+    build: (ctx) => {
+      const t = teeClubOf(ctx)!;
+      return {
+        title: `드라이버가 샷당 ${t.gap!.toFixed(2)}타 낫습니다`,
+        body: `드라이버 ${t.driverShots}샷 샷당 ${signed(t.driverAvg!)} vs 끊어감(우드·유틸·아이언) ${t.otherShots}샷 샷당 ${signed(t.otherAvg!)}. ` +
+              '끊어가서 얻는 정확도가 거리 손실을 메우지 못하고 있습니다. Sherman: 페어웨이 75%에 200yd보다 55%에 더 멀리 보내는 쪽이 낫습니다. ' +
+              'OB·해저드가 분명한 홀이 아니면 드라이버를 잡으세요.',
+      };
+    },
+  },
+  {
+    id: 'tee-club-other-better', scope: 'tee', tone: 'info', source: `${SRC_SHERMAN} · ${SRC_APP}`,
+    when: (ctx) => { const t = teeClubOf(ctx); return !!t && t.gap !== null && t.gap <= -TEE_CLUB_GAP; },
+    build: (ctx) => {
+      const t = teeClubOf(ctx)!;
+      return {
+        title: `끊어간 티샷이 샷당 ${(-t.gap!).toFixed(2)}타 낫습니다`,
+        body: `끊어감(우드·유틸·아이언) ${t.otherShots}샷 샷당 ${signed(t.otherAvg!)} vs 드라이버 ${t.driverShots}샷 샷당 ${signed(t.driverAvg!)}. ` +
+              'SG는 홀 길이를 반영하므로 거리 차이는 이미 계산에 들어가 있습니다. 그래도 드라이버에서 잃는다면 벌타·트러블 비용입니다. ' +
+              '다만 끊어가는 홀은 대개 좁거나 위험한 홀이라 조건이 같지 않습니다. 트러블이 있는 홀부터 드라이버 대신 한 클럽 짧게 잡아 보세요.',
+      };
+    },
+  },
+  {
+    id: 'tee-club-similar', scope: 'tee', tone: 'info', source: SRC_APP,
+    when: (ctx) => { const t = teeClubOf(ctx); return !!t && t.gap !== null && Math.abs(t.gap) < TEE_CLUB_GAP && ctx.byCat.tee < 0; },
+    build: (ctx) => {
+      const t = teeClubOf(ctx)!;
+      return {
+        title: '드라이버와 끊어가기 차이가 작습니다',
+        body: `드라이버 샷당 ${signed(t.driverAvg!)} vs 우드·유틸·아이언 ${signed(t.otherAvg!)}. ` +
+              '클럽 선택보다 조준·컨택 쪽에서 티샷 손실을 찾으세요.',
+      };
+    },
+  },
+  {
+    id: 'tee-club-few', scope: 'tee', tone: 'info', source: SRC_APP,
+    when: (ctx) => { const t = teeClubOf(ctx); return !!t && !t.comparable && ctx.byCat.tee < 0; },
+    build: (ctx) => {
+      const t = teeClubOf(ctx)!;
+      return {
+        title: '드라이버 비교에 티샷이 부족합니다',
+        body: `드라이버 ${t.driverShots}샷, 끊어감(우드·유틸·아이언) ${t.otherShots}샷. 각각 ${TEE_CLUB_MIN_SHOTS}샷부터 샷당 SG를 비교해 ` +
+              '드라이버를 잡는 게 나은지 알려 드립니다. 원장 첫 샷 줄의 "드라이버"를 눌러 끊어간 티샷을 "끊어감"으로 바꾸세요.',
+      };
+    },
   },
 
   /* ── 어프로치 ── */

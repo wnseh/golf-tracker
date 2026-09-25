@@ -4,12 +4,12 @@ import type {
 } from './types';
 
 /* ── 라이 ────────────────────────────────────────────────── */
-export const LIE_OPTIONS: Lie[] = ['FW', 'RO', 'SA', 'TR', 'GR', 'HOLED'];
+export const LIE_OPTIONS: Lie[] = ['FW', 'RO', 'SA', 'TR', 'GR', 'HZ', 'OB', 'HOLED'];
 export const LIE_LABELS: Record<Lie | StartLie, string> = {
-  TEE: 'Tee', FW: 'FW', RO: 'Rough', SA: 'Sand', TR: 'Trouble', GR: 'Green', HOLED: 'In',
+  TEE: 'Tee', FW: 'FW', RO: 'Rough', SA: 'Sand', TR: 'Trouble', GR: 'Green', HZ: 'HZ', OB: 'OB', HOLED: 'In',
 };
 export const LIE_LONG_LABELS: Record<Lie, string> = {
-  FW: '페어웨이', RO: '러프', SA: '벙커', TR: '트러블', GR: '그린', HOLED: '홀인',
+  FW: '페어웨이', RO: '러프', SA: '벙커', TR: '트러블', GR: '그린', HZ: '해저드', OB: 'OB', HOLED: '홀인',
 };
 
 /* ── 거리 버킷 (m) + SG 계산용 중간값 ────────────────────── */
@@ -21,7 +21,7 @@ export const DIST_MID: Record<DistBucket, number> = {
   '0-1': 0.5, '1-2': 1.5, '2-5': 3.5, '5-10': 7.5, '10+': 13,
 };
 
-/** 라이에 맞는 거리 버킷 목록 (HOLED는 없음) */
+/** 라이에 맞는 거리 버킷 목록 (HOLED는 없음, HZ·OB 드롭은 그린 밖 버킷) */
 export function distBucketsFor(lie: Lie): DistBucket[] {
   if (lie === 'HOLED') return [];
   if (lie === 'GR') return GREEN_DIST_BUCKETS;

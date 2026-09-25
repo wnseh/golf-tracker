@@ -5,6 +5,7 @@ import type { Round, HoleData, HoleFormState, Shot, HoleLenBucket } from '@/lib/
 import { emptyHoleFormState, HOLE_LEN_BUCKETS, WEATHER_ICONS, holeLenMid } from '@/lib/constants';
 import { isLedgerComplete, derivedScore, holeStats } from '@/lib/stats';
 import { holeSG } from '@/lib/sg';
+import { startPositions, penaltyStrokes } from '@/lib/ledger';
 import { createClient } from '@/lib/supabase/client';
 import { withRetry, DEFAULT_RETRY_DELAYS } from '@/lib/retry';
 import { SupabaseSaveError, classifySupabaseError, isRetryableKind, shouldKeepLocally, saveErrorMessage } from '@/lib/save-errors';
@@ -28,6 +29,7 @@ type Action =
   | { type: 'REMOVE_LAST_SHOT' }
   | { type: 'TOGGLE_PEN'; index: number }
   | { type: 'TOGGLE_STRIKE'; index: number }
+  | { type: 'TOGGLE_DRIVER'; index: number }
   | { type: 'SET_SCORE_ONLY'; value: boolean }
   | { type: 'SET_SCORE'; score: number }
   | { type: 'SET_NOTES'; value: string };
@@ -37,18 +39,40 @@ function withLedgerScore(state: HoleFormState, shots: Shot[]): HoleFormState {
   return { ...state, shots, score: shots.length > 0 ? derivedScore(shots) : state.par };
 }
 
+/** 티에서 친 샷인지 (첫 샷 + OB 다시 치기 후 두 번째 티샷) */
+function teeShotFlags(shots: Shot[]): boolean[] {
+  const starts = startPositions(shots, null);
+  return shots.map((_, i) => starts[i]?.lie === 'TEE');
+}
+
+/** 티샷 드라이버 필드 정규화: 파4·5 티샷은 기록값 유지(없으면 true), 파3이면 필드 제거 */
+function withTeeDriver(par: number, shots: Shot[]): Shot[] {
+  const tee = teeShotFlags(shots);
+  return shots.map((s, i) => {
+    if (!tee[i]) return s;
+    if (par >= 4) return { ...s, driver: s.driver ?? true };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { driver, ...noDriver } = s;
+    return noDriver;
+  });
+}
+
 function reducer(state: HoleFormState, action: Action): HoleFormState {
   switch (action.type) {
     case 'SET_ALL':
       return action.state;
     case 'SET_PAR': {
       const score = state.scoreOnly && state.score === state.par ? action.par : state.score;
-      return { ...state, par: action.par, holeLen: null, score };
+      return { ...state, par: action.par, holeLen: null, score, shots: withTeeDriver(action.par, state.shots) };
     }
     case 'SET_HOLE_LEN':
       return { ...state, holeLen: action.value };
-    case 'ADD_SHOT':
-      return withLedgerScore(state, [...state.shots, action.shot]);
+    case 'ADD_SHOT': {
+      // 티에서 치는 샷이면 파4·5 드라이버 기본값을 붙인다. 앞 샷은 건드리지 않는다(이전 데이터 N/A 보존).
+      const isTee = startPositions(state.shots, null)[state.shots.length]?.lie === 'TEE';
+      const shot = isTee && state.par >= 4 ? { ...action.shot, driver: action.shot.driver ?? true } : action.shot;
+      return withLedgerScore(state, [...state.shots, shot]);
+    }
     case 'REMOVE_LAST_SHOT':
       return withLedgerScore(state, state.shots.slice(0, -1));
     case 'TOGGLE_PEN':
@@ -62,6 +86,13 @@ function reducer(state: HoleFormState, action: Action): HoleFormState {
         ...state,
         shots: state.shots.map((s, i) =>
           i === action.index ? { ...s, strike: s.strike === 'miss' ? 'ok' : 'miss' } : s),
+      };
+    case 'TOGGLE_DRIVER':
+      // true ↔ false. 미기록(null, 이전 데이터)은 true로 시작. 파3·티샷 아닌 줄은 무시. 스코어 무관.
+      if (state.par < 4 || !teeShotFlags(state.shots)[action.index]) return state;
+      return {
+        ...state,
+        shots: state.shots.map((s, i) => (i === action.index ? { ...s, driver: s.driver === true ? false : true } : s)),
       };
     case 'SET_SCORE_ONLY':
       return { ...state, scoreOnly: action.value };
@@ -353,6 +384,7 @@ export function HoleInput({ round, savedHoles }: HoleInputProps) {
   }
 
   const diff = state.score - state.par;
+  const penCount = state.shots.reduce((n, s) => n + penaltyStrokes(s), 0);
   const holeLenOptions = HOLE_LEN_BUCKETS[state.par] ?? [];
 
   return (
@@ -433,7 +465,7 @@ export function HoleInput({ round, savedHoles }: HoleInputProps) {
               <Stat label="FIR" value={stats.fir === null ? (state.par === 3 ? '–' : '?') : stats.fir ? '✓' : '✗'} tone={stats.fir} />
               <Stat label="GIR" value={stats.gir === null ? '?' : stats.gir ? '✓' : '✗'} tone={stats.gir} />
               <Stat label="Putts" value={stats.putts === null ? '?' : String(stats.putts)} />
-              <Stat label="Pen" value={String(state.shots.filter((s) => s.pen).length)} tone={state.shots.some((s) => s.pen) ? false : null} />
+              <Stat label="Pen" value={String(penCount)} tone={penCount > 0 ? false : null} />
               <Stat label="Miss" value={String(state.shots.filter((s) => s.strike === 'miss').length)} tone={state.shots.some((s) => s.strike === 'miss') ? false : null} />
             </div>
           </div>
@@ -463,6 +495,7 @@ export function HoleInput({ round, savedHoles }: HoleInputProps) {
             onRemoveLast={() => dispatch({ type: 'REMOVE_LAST_SHOT' })}
             onTogglePen={(i) => dispatch({ type: 'TOGGLE_PEN', index: i })}
             onToggleStrike={(i) => dispatch({ type: 'TOGGLE_STRIKE', index: i })}
+            onToggleDriver={state.par >= 4 ? (i) => dispatch({ type: 'TOGGLE_DRIVER', index: i }) : undefined}
             shotSg={liveSg ? liveSg.shots.map((x) => x.value) : undefined}
           />
         </div>

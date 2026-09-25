@@ -3,7 +3,7 @@ import {
   selectInsights, insightSources, SG_GUIDE, SG_TOTAL_GUIDE,
   MIN_ROUNDS_STABLE, DOUBLES_WARN, type InsightContext,
 } from '../../src/lib/insights';
-import { SG_CATEGORIES, emptySgByStrike, type SgByStrike } from '../../src/lib/sg';
+import { SG_CATEGORIES, emptySgByStrike, type SgByStrike, type SgByTeeClub } from '../../src/lib/sg';
 import { riccioEstimate } from '../../src/lib/stats';
 
 const FORBIDDEN = /eSG|Estimated|Baseline|핸디/;
@@ -236,6 +236,49 @@ test.describe('selectInsights — 컨택 (Young)', () => {
   });
 });
 
+/** 티샷 클럽 헬퍼: 드라이버/끊어감 샷 수와 SG 합 */
+function teeClub(driver: { shots: number; sg: number }, other: { shots: number; sg: number }): SgByTeeClub {
+  return { driver, other, na: { shots: 0, sg: 0 } };
+}
+const TEE_CLUB_IDS = ['tee-club-driver-better', 'tee-club-other-better', 'tee-club-similar', 'tee-club-few'];
+
+test.describe('selectInsights — 티샷 드라이버 여부', () => {
+  test('정보가 없으면 티샷 클럽 규칙은 안 나온다', () => {
+    expect(ids(typical(), 'tee').filter((id) => TEE_CLUB_IDS.includes(id))).toEqual([]);
+  });
+  test('드라이버가 샷당 0.15타 이상 나으면 driver-better (샷당 SG 포함)', () => {
+    const got = selectInsights(typical({ teeClub: teeClub({ shots: 40, sg: -4 }, { shots: 10, sg: -4 }) }), 'tee');
+    const w = got.find((i) => i.id === 'tee-club-driver-better')!;
+    expect(w).toBeTruthy();
+    expect(w.tone).toBe('good');
+    expect(w.title).toContain('0.30');
+    expect(w.body).toContain('드라이버 40샷 샷당 -0.10');
+    expect(w.body).toContain('10샷 샷당 -0.40');
+    expect(got.map((i) => i.id).filter((id) => TEE_CLUB_IDS.includes(id))).toEqual(['tee-club-driver-better']);
+  });
+  test('끊어간 티샷이 나으면 other-better', () => {
+    const got = ids(typical({ teeClub: teeClub({ shots: 30, sg: -9 }, { shots: 10, sg: -1 }) }), 'tee');
+    expect(got.filter((id) => TEE_CLUB_IDS.includes(id))).toEqual(['tee-club-other-better']);
+  });
+  test('차이가 작으면 similar (티샷 손실일 때만)', () => {
+    const tc = teeClub({ shots: 30, sg: -3 }, { shots: 10, sg: -1.5 });
+    expect(ids(typical({ teeClub: tc }), 'tee').filter((id) => TEE_CLUB_IDS.includes(id))).toEqual(['tee-club-similar']);
+    const pos = typical({ teeClub: tc, byCat: { tee: 0.5, approach: -5, short: -2, putt: -1.5 }, total: -8 });
+    expect(ids(pos, 'tee').filter((id) => TEE_CLUB_IDS.includes(id))).toEqual([]);
+  });
+  test('한쪽이 5샷 미만이면 few 안내만', () => {
+    const got = selectInsights(typical({ teeClub: teeClub({ shots: 40, sg: -4 }, { shots: 2, sg: -2 }) }), 'tee');
+    expect(got.map((i) => i.id).filter((id) => TEE_CLUB_IDS.includes(id))).toEqual(['tee-club-few']);
+    expect(got.find((i) => i.id === 'tee-club-few')!.body).toContain('2샷');
+  });
+  test('티샷 외 카테고리엔 안 나온다', () => {
+    const ctx = typical({ teeClub: teeClub({ shots: 40, sg: -4 }, { shots: 10, sg: -4 }) });
+    for (const scope of ['total', 'approach', 'short', 'putt'] as const) {
+      expect(ids(ctx, scope).filter((id) => TEE_CLUB_IDS.includes(id))).toEqual([]);
+    }
+  });
+});
+
 test.describe('출력 규칙', () => {
   test('모든 해설 문구에 금지 표기가 없고 출처가 있다', () => {
     const variants: InsightContext[] = [
@@ -245,6 +288,10 @@ test.describe('출력 규칙', () => {
       typical({ byCat: { tee: -1, approach: -1, short: -3, putt: -3 }, total: -8, gir: { hit: 70, den: 144 }, fir: { hit: 70, den: 112 } }),
       typical({ mishits: { hit: 15, den: 40 }, strike: strikeFor('approach', { shots: 30, sg: -3 }, { shots: 10, sg: -9 }) }),
       typical({ strike: strikeFor('tee', { shots: 40, sg: -8 }, { shots: 4, sg: -2 }) }),
+      typical({ teeClub: teeClub({ shots: 40, sg: -4 }, { shots: 10, sg: -4 }) }),
+      typical({ teeClub: teeClub({ shots: 30, sg: -9 }, { shots: 10, sg: -1 }) }),
+      typical({ teeClub: teeClub({ shots: 30, sg: -3 }, { shots: 10, sg: -1.5 }) }),
+      typical({ teeClub: teeClub({ shots: 40, sg: -4 }, { shots: 0, sg: 0 }) }),
     ];
     for (const ctx of variants) {
       for (const scope of ['total', ...SG_CATEGORIES] as const) {

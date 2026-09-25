@@ -119,6 +119,66 @@ test.describe('홀 입력 (샷 원장)', () => {
     await expect(page.getByTestId('stat-miss-value')).toHaveText('1');
   });
 
+  test('티샷 드라이버 토글: 파4 첫 샷은 드라이버로 시작, 파3이면 사라지고, 저장 후 복원된다', async ({ page }) => {
+    await createRound(page, { holes: 9 });
+    await page.getByTestId('par-4').click();
+    await enterShots(page, [{ lie: 'FW', dist: '100-150' }, { lie: 'GR', dist: '2-5' }]);
+
+    const toggle = page.getByTestId('driver-toggle');
+    await expect(toggle).toHaveCount(1);                     // 첫 샷 줄에만
+    await expect(toggle).toHaveAttribute('data-driver', 'true');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('data-driver', 'false');
+    await expect(toggle).toHaveText('끊어감');
+    await expect(page.getByTestId('hole-score')).toHaveText('2'); // 스코어 무관
+
+    // 파3로 바꾸면 티샷이 아니므로 토글이 사라진다
+    await page.getByTestId('par-3').click();
+    await expect(toggle).toHaveCount(0);
+    // 다시 파4 → 드라이버로 시작
+    await page.getByTestId('par-4').click();
+    await expect(toggle).toHaveAttribute('data-driver', 'true');
+    await toggle.click();
+
+    await page.getByTestId('lie-HOLED').click();
+    await saveHole(page, 1, 9);
+    await page.getByTestId('hole-nav-1').click();
+    await page.reload();
+    await expect(page.getByTestId('driver-toggle')).toHaveAttribute('data-driver', 'false');
+  });
+
+  test('OB 다시 치기: 다음 줄이 티에서 출발, 드라이버 토글 2개, 벌타 자동 +1, 저장 후 복원', async ({ page }) => {
+    await createRound(page, { holes: 9 });
+    await page.getByTestId('par-4').click();
+    await page.getByTestId('holelen-p4:350-400').click();
+    await enterShots(page, [{ lie: 'OB' }, { lie: 'FW', dist: '100-150' }, { lie: 'GR', dist: '2-5' }, { lie: 'GR', dist: '0-1' }, { lie: 'HOLED' }]);
+
+    await expect(page.getByTestId('driver-toggle')).toHaveCount(2);   // 첫 티샷 + 다시 친 티샷
+    await expect(page.getByTestId('auto-pen-0')).toHaveText('+1 벌타');
+    await expect(page.getByTestId('pen-toggle-0')).toHaveCount(0);
+    await expect(page.getByTestId('shot-sg-0')).toHaveText('-2.00');
+    await expect(page.getByTestId('hole-score')).toHaveText('6');
+    await expect(page.getByTestId('stat-pen-value')).toHaveText('1');
+    await expect(page.getByTestId('stat-fir-value')).toHaveText('✗');
+
+    await saveHole(page, 1, 9);
+    await page.getByTestId('hole-nav-1').click();
+    await page.reload();
+    await expect(page.getByTestId('shot-row').nth(0)).toHaveAttribute('data-lie', 'OB');
+    await expect(page.getByTestId('hole-score')).toHaveText('6');
+  });
+
+  test('OB 특설티(+2)와 HZ(+1): 스코어·벌타가 자동 파생된다', async ({ page }) => {
+    await createRound(page, { holes: 9 });
+    await page.getByTestId('par-4').click();
+    await enterShots(page, [{ lie: 'OB', dist: '100-150' }, { lie: 'HZ', dist: '0-20' }, { lie: 'GR', dist: '0-1' }, { lie: 'HOLED' }]);
+    await expect(page.getByTestId('auto-pen-0')).toHaveText('+2 벌타');
+    await expect(page.getByTestId('auto-pen-1')).toHaveText('+1 벌타');
+    await expect(page.getByTestId('driver-toggle')).toHaveCount(1);
+    await expect(page.getByTestId('hole-score')).toHaveText('7');     // 4샷 + 벌타 3
+    await expect(page.getByTestId('stat-pen-value')).toHaveText('3');
+  });
+
   test('샷별 SG가 원장 줄에 붙고, 홀 길이가 없으면 티샷만 "–"', async ({ page }) => {
     await createRound(page, { holes: 9 });
     await page.getByTestId('par-4').click();

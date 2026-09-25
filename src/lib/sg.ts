@@ -1,7 +1,8 @@
 /**
  * sg.ts — Strokes Gained vs PGA Tour. 순수 함수, Supabase 의존 없음.
  *
- * 샷 하나의 SG = E(치기 전 위치) − E(친 후 위치) − 1 − (벌타 ? 1 : 0)
+ * 샷 하나의 SG = E(치기 전 위치) − E(친 후 위치) − 1 − 벌타
+ * 위치·벌타 규칙(HZ 드롭, OB 다시 치기/특설티)은 ledger.ts. 티샷 OB 다시 치기는 출발=도착이라 정확히 −2.
  * E = PGA Tour 골퍼가 그 위치에서 홀아웃까지 걸리는 평균 타수.
  *
  * 기준표 출처 (모두 Mark Broadie, ShotLink 2003-2010 추정):
@@ -10,14 +11,14 @@
  * 아래 표는 원 단위 그대로 적고, 조회 시 m로 변환한다.
  *
  * 카테고리 (Shot Scope 기준, 치기 전 위치로 분류):
- *   tee      = 파4/5의 첫 샷
+ *   tee      = 파4/5에서 티(TEE)에서 친 샷 (OB 다시 치기 후 두 번째 티샷 포함)
  *   approach = 그린 밖에서 50m 초과 (파3 첫 샷 포함)
  *   short    = 그린 밖에서 50m 이하
  *   putt     = 그린 위
  */
 
 import type { Shot, StartLie, Strike } from './types';
-import { DIST_MID } from './constants';
+import { penaltyStrokes, startPositions } from './ledger';
 
 /* ── 기준표 ────────────────────────────────────────────────────────────── */
 
@@ -127,6 +128,11 @@ export type StrikeKey = Strike | 'na';
 export interface StrikeSplit { sg: SgByCategory; shots: SgByCategory }
 export type SgByStrike = Record<StrikeKey, StrikeSplit>;
 
+/** 티샷 클럽별 SG 분리: 드라이버 / 그 외 / 미기록. SG 합과 샷 수. 18홀 환산 없음(합). */
+export type TeeClubKey = 'driver' | 'other' | 'na';
+export interface TeeClubSplit { sg: number; shots: number }
+export type SgByTeeClub = Record<TeeClubKey, TeeClubSplit>;
+
 export interface HoleSG {
   shots:     ShotSG[];
   byCat:     SgByCategory;
@@ -134,6 +140,7 @@ export interface HoleSG {
   counted:   number;   // value가 있는 샷 수
   skipped:   number;   // 홀 길이 미입력 등으로 계산 못 한 샷 수
   byStrike:  SgByStrike;
+  byTeeClub: SgByTeeClub;
 }
 
 export function emptySgByCategory(): SgByCategory {
@@ -145,6 +152,15 @@ export function emptySgByStrike(): SgByStrike {
     miss: { sg: emptySgByCategory(), shots: emptySgByCategory() },
     na:   { sg: emptySgByCategory(), shots: emptySgByCategory() },
   };
+}
+export function emptySgByTeeClub(): SgByTeeClub {
+  return { driver: { sg: 0, shots: 0 }, other: { sg: 0, shots: 0 }, na: { sg: 0, shots: 0 } };
+}
+function addTeeClub(into: SgByTeeClub, from: SgByTeeClub) {
+  for (const k of ['driver', 'other', 'na'] as TeeClubKey[]) {
+    into[k].sg += from[k].sg;
+    into[k].shots += from[k].shots;
+  }
 }
 function addStrike(into: SgByStrike, from: SgByStrike) {
   for (const k of ['ok', 'miss', 'na'] as StrikeKey[]) {
@@ -163,14 +179,18 @@ export function holeSG(par: number, holeLenMid: number | null, shots: Shot[]): H
   const out: ShotSG[] = [];
   const byCat = emptySgByCategory();
   const byStrike = emptySgByStrike();
+  const byTeeClub = emptySgByTeeClub();
   let total = 0, counted = 0, skipped = 0;
 
-  let startLie: StartLie = 'TEE';
-  let startDist: number | null = holeLenMid;
+  const pos = startPositions(shots, holeLenMid);
 
   shots.forEach((shot, i) => {
+    const start = pos[i];
+    if (!start) return;   // 미완성 원장 — 호출 측이 완성을 보장하므로 방어용
+    const startLie = start.lie;
+    const startDist = start.dist;
     const category: SgCategory =
-      i === 0 && par >= 4 ? 'tee'
+      startLie === 'TEE' && par >= 4 ? 'tee'
       : startLie === 'GR' ? 'putt'
       : (startDist ?? Infinity) > 50 ? 'approach'
       : 'short';
@@ -184,29 +204,28 @@ export function holeSG(par: number, holeLenMid: number | null, shots: Shot[]): H
     let value: number | null = null;
     if (startDist !== null) {
       const startE = expectedStrokes(startLie, startDist);
-      const finishE = shot.lie === 'HOLED' || shot.dist === null
-        ? 0
-        : expectedStrokes(shot.lie, DIST_MID[shot.dist]);
-      value = startE - finishE - 1 - (shot.pen ? 1 : 0);
+      const finish = pos[i + 1];
+      const finishE = finish === null || finish.dist === null ? 0 : expectedStrokes(finish.lie, finish.dist);
+      value = startE - finishE - 1 - penaltyStrokes(shot);
       byCat[category] += value;
       total += value;
       counted++;
       const key: StrikeKey = strike ?? 'na';
       byStrike[key].sg[category] += value;
       byStrike[key].shots[category] += 1;
+      if (category === 'tee') {
+        const club: TeeClubKey = shot.driver === true ? 'driver' : shot.driver === false ? 'other' : 'na';
+        byTeeClub[club].sg += value;
+        byTeeClub[club].shots += 1;
+      }
     } else {
       skipped++;
     }
 
     out.push({ index: i, category, startLie, startDist, value, strike });
-
-    if (shot.lie !== 'HOLED' && shot.dist !== null) {
-      startLie = shot.lie;
-      startDist = DIST_MID[shot.dist];
-    }
   });
 
-  return { shots: out, byCat, total, counted, skipped, byStrike };
+  return { shots: out, byCat, total, counted, skipped, byStrike, byTeeClub };
 }
 
 export interface RoundSG {
@@ -218,12 +237,14 @@ export interface RoundSG {
   shotsCounted:  number;
   shotsSkipped:  number;
   byStrike:      SgByStrike;     // 라운드 합 (환산 없음)
+  byTeeClub:     SgByTeeClub;    // 라운드 합 (환산 없음)
 }
 
 export function roundSG(holeSgs: HoleSG[]): RoundSG | null {
   if (holeSgs.length === 0) return null;
   const byCat = emptySgByCategory();
   const byStrike = emptySgByStrike();
+  const byTeeClub = emptySgByTeeClub();
   let total = 0, shotsCounted = 0, shotsSkipped = 0;
   for (const h of holeSgs) {
     for (const c of SG_CATEGORIES) byCat[c] += h.byCat[c];
@@ -231,6 +252,7 @@ export function roundSG(holeSgs: HoleSG[]): RoundSG | null {
     shotsCounted += h.counted;
     shotsSkipped += h.skipped;
     addStrike(byStrike, h.byStrike);
+    addTeeClub(byTeeClub, h.byTeeClub);
   }
   const scale = 18 / holeSgs.length;
   const byCatPer18 = emptySgByCategory();
@@ -241,6 +263,7 @@ export function roundSG(holeSgs: HoleSG[]): RoundSG | null {
     holesCounted: holeSgs.length,
     shotsCounted, shotsSkipped,
     byStrike,
+    byTeeClub,
   };
 }
 
@@ -248,6 +271,13 @@ export function roundSG(holeSgs: HoleSG[]): RoundSG | null {
 export function sumStrike(rounds: RoundSG[]): SgByStrike {
   const out = emptySgByStrike();
   for (const r of rounds) addStrike(out, r.byStrike);
+  return out;
+}
+
+/** 여러 라운드의 티샷 클럽별 SG 합 (샷 단위 비교용, 환산 없음) */
+export function sumTeeClub(rounds: RoundSG[]): SgByTeeClub {
+  const out = emptySgByTeeClub();
+  for (const r of rounds) addTeeClub(out, r.byTeeClub);
   return out;
 }
 

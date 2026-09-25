@@ -3,9 +3,14 @@ export type WeatherVal = 'sunny' | 'partly-cloudy' | 'cloudy' | 'rain' | 'snow' 
 
 /* ── SG 원장 ─────────────────────────────────────────────── */
 
-/** 샷을 친 후 공이 놓인 곳 */
-export type Lie = 'FW' | 'RO' | 'SA' | 'TR' | 'GR' | 'HOLED';
-/** 샷을 치기 전 위치의 라이 (TEE 포함, HOLED 제외) */
+/**
+ * 샷을 친 후 공이 놓인 곳.
+ * HZ = 페널티 구역(+1). dist = 드롭 지점에서 남은 거리, 다음 샷은 러프에서 친 것으로 본다.
+ * OB = 아웃 오브 바운즈. dist가 null이면 "다시 치기"(+1, 같은 자리에서 다시),
+ *      dist가 있으면 "특설티·드롭"(+2, 그 거리의 페어웨이에서). 규칙은 ledger.ts.
+ */
+export type Lie = 'FW' | 'RO' | 'SA' | 'TR' | 'GR' | 'HZ' | 'OB' | 'HOLED';
+/** 샷을 치기 전 위치의 라이 (TEE 포함, HOLED·HZ·OB 제외 — 그 다음 샷의 출발은 ledger.ts가 정한다) */
 export type StartLie = 'TEE' | 'FW' | 'RO' | 'SA' | 'TR' | 'GR';
 
 /** 그린 밖 남은 거리 버킷 (m) */
@@ -24,15 +29,18 @@ export type HoleLenBucket =
 export type Strike = 'ok' | 'miss';
 
 /**
- * 원장 항목 하나 = 샷 하나. lie/dist는 "친 후" 위치. pen은 이 샷에 붙은 1벌타.
+ * 원장 항목 하나 = 샷 하나. lie/dist는 "친 후" 위치. pen은 이 샷에 붙은 그 외 1벌타(HZ/OB 벌타는 자동).
  * strike는 원장 입력 시 퍼트가 아니면 'ok'로 시작하고 미스 토글로 바꾼다.
  * 필드가 없거나 null이면 미기록(N/A) — 이 필드 도입 전 데이터와 퍼트.
+ * driver는 파4·파5에서 티(TEE)에서 친 샷에만 (OB 다시 치기 후 두 번째 티샷 포함). true로 시작하고 토글로 false(우드·유틸·아이언).
+ * 다른 샷·파3은 필드 없음. 없거나 null이면 미기록(N/A).
  */
 export interface Shot {
   lie:     Lie;
-  dist:    DistBucket | null;   // HOLED이면 null
+  dist:    DistBucket | null;   // HOLED, OB 다시 치기면 null
   pen:     boolean;
   strike?: Strike | null;
+  driver?: boolean | null;
 }
 
 /* ── 홀 / 라운드 ─────────────────────────────────────────── */

@@ -4,7 +4,8 @@
 import { expect, type Page } from '@playwright/test';
 import { e2eCourseName } from './env';
 
-export type Lie = 'FW' | 'RO' | 'SA' | 'TR' | 'GR' | 'HOLED';
+export type Lie = 'FW' | 'RO' | 'SA' | 'TR' | 'GR' | 'HZ' | 'OB' | 'HOLED';
+/** OB는 dist 없으면 다시 치기, dist 있으면 특설티·드롭 */
 export interface ShotInput { lie: Lie; dist?: string; pen?: boolean; miss?: boolean }
 export interface HoleInput { par: 3 | 4 | 5; len?: string; shots: ShotInput[] }
 
@@ -27,7 +28,14 @@ export async function enterShots(page: Page, shots: ShotInput[]) {
   for (let i = 0; i < shots.length; i++) {
     const s = shots[i];
     await page.getByTestId(`lie-${s.lie}`).click();
-    if (s.lie !== 'HOLED') {
+    if (s.lie === 'OB') {
+      if (s.dist) {
+        await page.getByTestId('ob-drop').click();
+        await page.getByTestId(`dist-${s.dist}`).click();
+      } else {
+        await page.getByTestId('ob-replay').click();
+      }
+    } else if (s.lie !== 'HOLED') {
       if (!s.dist) throw new Error(`shot ${i + 1}: dist required for lie ${s.lie}`);
       await page.getByTestId(`dist-${s.dist}`).click();
     }

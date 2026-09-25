@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import type { RoundSummary } from '@/lib/load-rounds';
 import { periodStats, type PeriodStats, type Ratio } from '@/lib/stats';
-import { averageSG, sumStrike, SG_CATEGORIES, SG_CATEGORY_LABELS, type SgCategory, type RoundSG } from '@/lib/sg';
+import { averageSG, sumStrike, sumTeeClub, SG_CATEGORIES, SG_CATEGORY_LABELS, type SgCategory, type RoundSG } from '@/lib/sg';
 import { PeriodFilter, getPeriodCutoff, PERIOD_LABELS, type Period } from '@/components/stats/period-filter';
 import { RoundVsPeriod } from '@/components/stats/round-vs-period';
 import { ElliottTiles } from '@/components/stats/elliott-tiles';
@@ -342,6 +342,7 @@ export function AnalysisClient({ rounds }: { rounds: RoundSummary[] }) {
       avgDoubles: stats.avgDoubles,
       mishits: stats.mishits,
       strike: sumStrike(sgRounds),
+      teeClub: sumTeeClub(sgRounds),
       riccio: stats.riccio,
     };
   }, [sgRounds, stats]);
