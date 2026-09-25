@@ -5,10 +5,10 @@
 | 프로젝트 | 위치 | 필요한 것 | 내용 |
 |---|---|---|---|
 | `lib` | `tests/lib/` | 없음 | `stats.ts` / `sg.ts` / `insights.ts` / `retry.ts` / `save-errors.ts` / `pending-holes.ts` 순수 함수 검증. 브라우저·서버 없이 돈다. |
-| `e2e` | `tests/e2e/` | 테스트 계정 + 백엔드 | UI 만 통해서 로그인 → 라운드 → 홀 입력 → Card → Analysis 흐름 검증. |
+| `e2e` | `tests/e2e/` | 테스트 계정 + 백엔드 | UI 만 통해서 로그인 → 라운드 → 홀 입력 → Card → Analysis 흐름 검증. `pwa.spec.ts`는 manifest·sw·아이콘이 로그인 없이 열리는지 (SW 등록은 `BASE_URL` 배포본에서만). |
 
 ```bash
-npm run test:lib     # 계산 로직만
+npm run test:lib     # 계산 로직만 (환경변수 없으면 BASE_URL=http://localhost:1 을 붙여 dev 서버 기동을 건너뛴다)
 npm run test:e2e     # 브라우저 (next dev 를 자동으로 띄움)
 npm test             # 전부
 BASE_URL=https://... npm run test:e2e   # 배포본 대상

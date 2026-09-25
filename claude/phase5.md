@@ -5,7 +5,7 @@
 
 ---
 
-## Phase 5A — PWA 설치 경험 (다음)
+## Phase 5A — PWA 설치 경험 (완료 2026-09-25)
 
 **목표:** 홈 화면 아이콘으로 앱처럼 실행 (브라우저 주소창 없이)
 
@@ -23,9 +23,16 @@
   - `apple-mobile-web-app-status-bar-style`
   - `apple-touch-icon`
 
+### 구현 메모
+- manifest는 `public/manifest.json` 대신 Next 파일 규칙 `src/app/manifest.ts` (→ `/manifest.webmanifest`, link 자동 삽입).
+- apple-touch-icon·파비콘도 파일 규칙 (`src/app/apple-icon.png`, `src/app/icon.svg`). 기본 favicon.ico 삭제.
+- `statusBarStyle: 'black'` — translucent는 헤더가 상태바 밑으로 들어가 safe-area 처리가 필요해 보류.
+- **middleware matcher에서 manifest·sw.js·이미지 제외** — 브라우저는 manifest를 쿠키 없이 가져가서, 제외 안 하면 /login으로 리다이렉트돼 설치 불가.
+- 검증: `tests/e2e/pwa.spec.ts` + production 빌드에서 Chrome `Page.getInstallabilityErrors` = [] 확인.
+
 ---
 
-## Phase 5B — Kakao OAuth + 온보딩 (추후)
+## Phase 5B — Kakao OAuth + 온보딩 (다음)
 
 ### 인증 변경
 - **이메일/비밀번호 로그인 제거** — Kakao OAuth로 완전 대체

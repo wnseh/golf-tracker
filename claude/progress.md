@@ -233,6 +233,16 @@ Card와 홀 입력의 스코어 색이 달랐던 것을 `vsParColor` 하나로 �
   다음 저장 때 함께 저장. 대기 홀 쪽 데이터 오류가 배치를 막으면 현재 홀만 단독 저장 폴백. 마운트 시 복원.
   권한/제약/형식 오류는 재시도·보관 없이 문구만. 인증 만료는 보관은 하되 재시도 안 함.
 
-## 다음: Phase 5
+## Phase 5A — PWA 설치 (2026-09-25)
 
-`claude/phase5.md` 참조 — PWA, Kakao OAuth + 온보딩, 성능.
+**왜.** 코스에서 폰 홈 화면 아이콘으로 바로 열고, 주소창 없이 앱처럼 쓰기 위해.
+
+**결정:**
+- 오프라인·캐시 없음. 서비스 워커는 install/activate만 (설치 요건용). 오프라인 입력 큐는 5C.
+- Next 파일 규칙으로 manifest·아이콘 연결 (`app/manifest.ts`, `app/icon.svg`, `app/apple-icon.png`). SW 등록은 production만.
+- 아이콘은 디자인 자산이 없어 앱 토큰 색(bg #0a0a0a, accent #4ade80)으로 깃발+공 SVG를 그려 PNG 생성. maskable은 안전 영역 안으로 72% 축소.
+- middleware가 미인증 요청을 /login으로 보내므로 manifest·sw.js·이미지를 matcher에서 제외 (스펙에 없던 필수 작업).
+
+## 다음: Phase 5B
+
+`claude/phase5.md` 참조 — Kakao OAuth + 온보딩. 코드 전에 Kakao Developers 앱 등록 + Supabase provider 설정 필요.

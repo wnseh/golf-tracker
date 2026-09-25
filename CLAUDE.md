@@ -11,7 +11,7 @@
 - **배포**: Vercel (main push 자동 배포, https://golf-tracker-nu.vercel.app)
 
 ## 현재 상태
-Phase 6 완료 (최소 데이터 재설계). 다음: Phase 5 (PWA → Kakao OAuth → 성능).
+Phase 6 완료 (최소 데이터 재설계) + Phase 5A 완료 (PWA 설치). 다음: Phase 5B (Kakao OAuth + 온보딩) → 5C (성능).
 - 진행 기록·결정 이유: `claude/progress.md`
 - 현행 스펙: `claude/phase6.md`
 - 다음 스펙: `claude/phase5.md`
@@ -26,7 +26,9 @@ Phase 6 완료 (최소 데이터 재설계). 다음: Phase 5 (PWA → Kakao OAut
 ```
 src/app/
 ├── globals.css                 # Tailwind v4 @theme 커스텀 색상/폰트 + dim 색상
-├── layout.tsx                  # 루트 레이아웃 (DM Sans/DM Mono)
+├── layout.tsx                  # 루트 레이아웃 (DM Sans/DM Mono) + PWA 메타(theme-color, appleWebApp) + SW 등록
+├── manifest.ts                 # PWA manifest → /manifest.webmanifest
+├── icon.svg | apple-icon.png   # 파비콘 / apple-touch-icon (파일 규칙). 원본 SVG는 public/icons/icon.svg
 ├── error.tsx | global-error.tsx | not-found.tsx   # 에러 경계/404 (ErrorPanel 공용)
 ├── (auth)/login|signup/        # 이메일 로그인/회원가입
 ├── (app)/layout.tsx            # 인증 체크 + 헤더 + BottomNav
@@ -43,6 +45,9 @@ src/app/
 ├── (app)/settings/page.tsx     # 계정 + Sign Out
 └── api/auth/signout/route.ts
 src/middleware.ts               # 라우트 보호 (Next 16에서 proxy.ts로 이름 변경 예정). 로그는 console만(Edge)
+                                #   matcher에서 manifest.webmanifest·sw.js·이미지 제외 (브라우저가 쿠키 없이 가져감)
+public/sw.js                    # 최소 서비스 워커 (install/activate만, fetch 핸들러 없음). production에서만 등록
+public/icons/                   # PWA 아이콘 192/512/maskable-512 (icon.svg에서 rsvg-convert로 생성)
 src/instrumentation.ts          # Sentry 서버/엣지 init + onRequestError
 src/instrumentation-client.ts   # Sentry 브라우저 init
 sentry.server.config.ts | sentry.edge.config.ts   # 루트. DSN 없으면 비활성
@@ -61,7 +66,7 @@ src/lib/
 └── supabase/client.ts|server.ts
 src/hooks/use-drag-scroll.ts    # HoleNav 가로 드래그
 src/components/
-├── ui/                         # mini-toggle, collapsible-section, bottom-nav, error-panel
+├── ui/                         # mini-toggle, collapsible-section, bottom-nav, error-panel, sw-register
 ├── stats/                      # period-filter, elliott-tiles (Card/Analysis 공용), round-vs-period (Analysis)
 └── input/                      # hole-nav, shot-ledger, score-input, notes-section
 supabase/migrations/
