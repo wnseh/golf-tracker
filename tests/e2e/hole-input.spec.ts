@@ -171,12 +171,32 @@ test.describe('홀 입력 (샷 원장)', () => {
   test('OB 특설티(+2)와 HZ(+1): 스코어·벌타가 자동 파생된다', async ({ page }) => {
     await createRound(page, { holes: 9 });
     await page.getByTestId('par-4').click();
-    await enterShots(page, [{ lie: 'OB', dist: '100-150' }, { lie: 'HZ', dist: '0-20' }, { lie: 'GR', dist: '0-1' }, { lie: 'HOLED' }]);
+    await enterShots(page, [{ lie: 'OB', dist: '100-150' }, { lie: 'HZ', dist: '12-15' }, { lie: 'GR', dist: '0-1' }, { lie: 'HOLED' }]);
     await expect(page.getByTestId('auto-pen-0')).toHaveText('+2 벌타');
     await expect(page.getByTestId('auto-pen-1')).toHaveText('+1 벌타');
     await expect(page.getByTestId('driver-toggle')).toHaveCount(1);
     await expect(page.getByTestId('hole-score')).toHaveText('7');     // 4샷 + 벌타 3
     await expect(page.getByTestId('stat-pen-value')).toHaveText('3');
+  });
+
+  test('그린 주변 거리: 0-30m를 누르면 세부 8칸이 열리고, 라이를 바꾸면 닫힌다', async ({ page }) => {
+    await createRound(page, { holes: 9 });
+    await page.getByTestId('par-4').click();
+    await page.getByTestId('lie-RO').click();
+    await expect(page.getByTestId('dist-20-50')).toHaveCount(0);          // 옛 버킷은 선택지에 없음
+    await expect(page.getByTestId('near-green-grid')).toHaveCount(0);
+    await page.getByTestId('dist-0-30').click();
+    await expect(page.getByTestId('near-green-grid').locator('button')).toHaveCount(8);
+    await page.getByTestId('lie-SA').click();                             // 라이 변경 → 닫힘
+    await expect(page.getByTestId('near-green-grid')).toHaveCount(0);
+    await page.getByTestId('dist-0-30').click();
+    await page.getByTestId('dist-6-9').click();
+    const row = page.getByTestId('shot-row').first();
+    await expect(row).toHaveAttribute('data-dist', '6-9');
+    await expect(row).toContainText('6-9m');
+    // 그린 위에서는 0-30 그룹 없음
+    await page.getByTestId('lie-GR').click();
+    await expect(page.getByTestId('dist-0-30')).toHaveCount(0);
   });
 
   test('샷별 SG가 원장 줄에 붙고, 홀 길이가 없으면 티샷만 "–"', async ({ page }) => {

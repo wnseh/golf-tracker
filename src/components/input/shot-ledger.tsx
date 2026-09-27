@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { Shot, Lie, DistBucket, StartLie } from '@/lib/types';
-import { LIE_OPTIONS, LIE_LABELS, distBucketsFor } from '@/lib/constants';
+import { LIE_OPTIONS, LIE_LABELS, NEAR_GREEN_BUCKETS, distBucketsFor } from '@/lib/constants';
 import { startPositions, penaltyStrokes, isObReplay } from '@/lib/ledger';
 
 interface ShotLedgerProps {
@@ -37,6 +37,7 @@ const lieTextClass: Record<Lie | StartLie, string> = {
   TR: 'text-red', GR: 'text-blue', HZ: 'text-red', OB: 'text-red', HOLED: 'text-accent',
 };
 const idleClass = 'border-border bg-surface3 text-text2 hover:border-border2';
+const nearActiveClass = 'border-accent bg-accent-dim text-accent';
 
 function distLabel(b: DistBucket): string {
   return b.endsWith('+') ? `${b.slice(0, -1)}m+` : `${b}m`;
@@ -46,6 +47,8 @@ export function ShotLedger({ shots, onAdd, onRemoveLast, onTogglePen, onToggleSt
   const [pendingLie, setPendingLie] = useState<Lie | null>(null);
   // OB를 고른 뒤 "특설티·드롭"을 골랐는지 (다시 치기는 바로 추가되므로 상태 없음)
   const [obDrop, setObDrop] = useState(false);
+  // 그린 밖 "0-30m" 그룹을 열어 세부 8칸을 보여주는지
+  const [nearOpen, setNearOpen] = useState(false);
   const complete = shots.length > 0 && shots[shots.length - 1].lie === 'HOLED';
 
   // 샷별 치기 전 라이 (HZ 드롭·OB 다시 치기 반영). 마지막 항목 = 다음에 입력할 샷의 출발
@@ -59,6 +62,7 @@ export function ShotLedger({ shots, onAdd, onRemoveLast, onTogglePen, onToggleSt
   function reset() {
     setPendingLie(null);
     setObDrop(false);
+    setNearOpen(false);
   }
 
   function pickLie(lie: Lie) {
@@ -68,6 +72,7 @@ export function ShotLedger({ shots, onAdd, onRemoveLast, onTogglePen, onToggleSt
       return;
     }
     setObDrop(false);
+    setNearOpen(false);
     setPendingLie(lie === pendingLie ? null : lie);
   }
 
@@ -258,6 +263,19 @@ export function ShotLedger({ shots, onAdd, onRemoveLast, onTogglePen, onToggleSt
                 {distTitle}
               </p>
               <div className="flex flex-wrap gap-1.5">
+                {pendingLie !== 'GR' && (
+                  <button
+                    type="button"
+                    data-testid="dist-0-30"
+                    aria-expanded={nearOpen}
+                    onClick={() => setNearOpen(!nearOpen)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-mono font-medium transition ${
+                      nearOpen ? nearActiveClass : idleClass
+                    }`}
+                  >
+                    0-30m {nearOpen ? '▴' : '▾'}
+                  </button>
+                )}
                 {distBucketsFor(pendingLie).map((d) => (
                   <button
                     key={d}
@@ -270,6 +288,21 @@ export function ShotLedger({ shots, onAdd, onRemoveLast, onTogglePen, onToggleSt
                   </button>
                 ))}
               </div>
+              {nearOpen && pendingLie !== 'GR' && (
+                <div data-testid="near-green-grid" className="mt-2 grid grid-cols-4 gap-1.5">
+                  {NEAR_GREEN_BUCKETS.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      data-testid={`dist-${d}`}
+                      onClick={() => pickDist(d)}
+                      className={`rounded-lg border py-1.5 text-xs font-mono font-medium transition ${idleClass}`}
+                    >
+                      {distLabel(d)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

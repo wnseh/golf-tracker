@@ -142,3 +142,22 @@ test.describe('티샷 클럽별 SG 분리 (byTeeClub)', () => {
     expect(sum.other.sg).toBeCloseTo(r.byTeeClub.other.sg * 2, 9);
   });
 });
+
+test.describe('그린 주변 세부 버킷 (0-30m)', () => {
+  const E = (dist: Shot['dist']) =>
+    holeSG(4, 375, [{ lie: 'FW', dist, pen: false }, { lie: 'HOLED', dist: null, pen: false }]).shots[1].value!;
+  // 두 번째 샷(홀인) SG = E(FW, 중간값) − 1 → 버킷별 출발 기대 타수 비교
+  test('9m 안쪽 3칸은 기준표 첫 값으로 같다 (클램프)', () => {
+    expect(E('0-3')).toBeCloseTo(E('3-6'), 9);
+    expect(E('3-6')).toBeCloseTo(E('6-9'), 9);
+    expect(E('0-3') + 1).toBeCloseTo(2.18, 2);
+  });
+  test('9~30m는 거리 따라 단조 증가', () => {
+    const vals = (['9-12', '12-15', '15-20', '20-25', '25-30', '30-50'] as const).map(E);
+    for (let i = 1; i < vals.length; i++) expect(vals[i]).toBeGreaterThan(vals[i - 1]);
+  });
+  test('레거시 0-20 / 20-50도 그대로 계산된다', () => {
+    expect(E('0-20') + 1).toBeCloseTo(2.18, 1);
+    expect(Number.isFinite(E('20-50'))).toBe(true);
+  });
+});

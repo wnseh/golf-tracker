@@ -27,7 +27,7 @@ BASE_URL=https://... npm run test:e2e   # 배포본 대상
 
 ## 주요 testid (원장)
 `shot-row[data-lie|data-dist|data-pen|data-strike]`, `strike-toggle-N`, `pen-toggle-N`, `driver-toggle[data-driver=true|false|'']`(파4·5 티에서 친 줄만), `remove-last-shot`,
-`lie-HZ`, `lie-OB` → `ob-replay`(다시 치기 +1) / `ob-drop`(특설티·드롭 +2, 이어서 `dist-*`), `auto-pen-N`(HZ/OB 줄의 고정 벌타 배지).
+`dist-0-30`(그린 밖 0-30m 그룹 → `near-green-grid` 안 `dist-0-3`…`dist-25-30`), `lie-HZ`, `lie-OB` → `ob-replay`(다시 치기 +1) / `ob-drop`(특설티·드롭 +2, 이어서 `dist-*`), `auto-pen-N`(HZ/OB 줄의 고정 벌타 배지).
 
 ## 주요 testid (저장 복원력 / 에러 페이지)
 `save-hole[data-saving|data-retrying]`, `save-retrying`, `pending-notice[data-count]`, `hole-nav-N[data-state=pending]`,

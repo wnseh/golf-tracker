@@ -13,8 +13,14 @@ export type Lie = 'FW' | 'RO' | 'SA' | 'TR' | 'GR' | 'HZ' | 'OB' | 'HOLED';
 /** 샷을 치기 전 위치의 라이 (TEE 포함, HOLED·HZ·OB 제외 — 그 다음 샷의 출발은 ledger.ts가 정한다) */
 export type StartLie = 'TEE' | 'FW' | 'RO' | 'SA' | 'TR' | 'GR';
 
-/** 그린 밖 남은 거리 버킷 (m) */
-export type GroundDist = '0-20' | '20-50' | '50-100' | '100-150' | '150-200' | '200+';
+/**
+ * 그린 밖 남은 거리 버킷 (m). 0-30m는 UI 그룹이고 저장은 세부 8칸 중 하나.
+ * '0-20' | '20-50'은 2026-09-27 이전 데이터 (읽기 전용, 선택지에 없음).
+ */
+export type GroundDist =
+  | '0-3' | '3-6' | '6-9' | '9-12' | '12-15' | '15-20' | '20-25' | '25-30'
+  | '30-50' | '50-100' | '100-150' | '150-200' | '200+'
+  | '0-20' | '20-50';
 /** 그린 위 남은 거리 버킷 (m) */
 export type GreenDist = '0-1' | '1-2' | '2-5' | '5-10' | '10+';
 export type DistBucket = GroundDist | GreenDist;

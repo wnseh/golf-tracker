@@ -82,6 +82,7 @@ holes   (id, round_id, user_id, hole_num, par, score,
          hole_len_bucket, shots jsonb, notes, saved_at)   unique(round_id, hole_num)
 ```
 - `shots` = `Shot[]`, `Shot = { lie, dist, pen, strike?, driver? }`. lie/dist는 **친 후** 위치. null이면 "스코어만 입력" 홀.
+- 거리 버킷(m): 그린 밖 `0-30`(UI 그룹 → 저장은 `0-3`…`25-30` 8칸) / `30-50` / `50-100` / `100-150` / `150-200` / `200+`, 그린 `0-1`…`10+`. 옛 `0-20`·`20-50`은 레거시(읽기만).
 - `strike` = 컨택 `'ok' | 'miss' | null`. 원장 입력 시 퍼트가 아니면 `ok`로 시작, "미스" 토글로 변경. 필드 없음/null = N/A (도입 전 데이터, 퍼트).
 - `driver` = 파4·5 티에서 친 샷(OB 다시 치기 후 포함)만 `true`(드라이버) | `false`(끊어감). 첫 샷 입력 시 true로 시작, 파3이면 필드 없음. 없음/null = N/A.
 - `lie`에 `HZ`(+1, 다음 샷은 RO·그 거리), `OB`(거리 없음 = 다시 치기 +1·같은 자리 / 거리 있음 = 특설티·드롭 +2·FW) 포함. 규칙은 `ledger.ts`에만.

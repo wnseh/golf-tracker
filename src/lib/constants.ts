@@ -13,15 +13,20 @@ export const LIE_LONG_LABELS: Record<Lie, string> = {
 };
 
 /* ── 거리 버킷 (m) + SG 계산용 중간값 ────────────────────── */
-export const GROUND_DIST_BUCKETS: GroundDist[] = ['0-20', '20-50', '50-100', '100-150', '150-200', '200+'];
+/** 그린 주변 세부 버킷 — UI의 "0-30m"를 누르면 나온다. 9m 안쪽은 Broadie 표가 10yd부터라 SG가 같다(클램프). */
+export const NEAR_GREEN_BUCKETS: GroundDist[] = ['0-3', '3-6', '6-9', '9-12', '12-15', '15-20', '20-25', '25-30'];
+/** 그린 밖 30m 이상 버킷. UI는 앞에 "0-30m" 그룹 버튼을 붙인다. */
+export const GROUND_DIST_BUCKETS: GroundDist[] = ['30-50', '50-100', '100-150', '150-200', '200+'];
 export const GREEN_DIST_BUCKETS: GreenDist[] = ['0-1', '1-2', '2-5', '5-10', '10+'];
 
 export const DIST_MID: Record<DistBucket, number> = {
-  '0-20': 10, '20-50': 35, '50-100': 75, '100-150': 125, '150-200': 175, '200+': 230,
+  '0-3': 1.5, '3-6': 4.5, '6-9': 7.5, '9-12': 10.5, '12-15': 13.5, '15-20': 17.5, '20-25': 22.5, '25-30': 27.5,
+  '30-50': 40, '50-100': 75, '100-150': 125, '150-200': 175, '200+': 230,
+  '0-20': 10, '20-50': 35,   // 레거시
   '0-1': 0.5, '1-2': 1.5, '2-5': 3.5, '5-10': 7.5, '10+': 13,
 };
 
-/** 라이에 맞는 거리 버킷 목록 (HOLED는 없음, HZ·OB 드롭은 그린 밖 버킷) */
+/** 라이에 맞는 거리 버킷 목록 (HOLED는 없음, HZ·OB 드롭은 그린 밖 버킷). 그린 밖은 30m 이상만 — 0-30 세부는 NEAR_GREEN_BUCKETS */
 export function distBucketsFor(lie: Lie): DistBucket[] {
   if (lie === 'HOLED') return [];
   if (lie === 'GR') return GREEN_DIST_BUCKETS;

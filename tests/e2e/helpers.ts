@@ -5,6 +5,15 @@ import { expect, type Page } from '@playwright/test';
 import { e2eCourseName } from './env';
 
 export type Lie = 'FW' | 'RO' | 'SA' | 'TR' | 'GR' | 'HZ' | 'OB' | 'HOLED';
+/** 그린 주변 세부 버킷 — UI에서 "0-30m"를 먼저 눌러야 나온다 (src/lib/constants NEAR_GREEN_BUCKETS와 같게 유지) */
+const NEAR_GREEN = ['0-3', '3-6', '6-9', '9-12', '12-15', '15-20', '20-25', '25-30'];
+
+/** 거리 버튼 탭. 세부 버킷이면 0-30 그룹을 먼저 연다. */
+async function pickDist(page: Page, dist: string) {
+  if (NEAR_GREEN.includes(dist)) await page.getByTestId('dist-0-30').click();
+  await page.getByTestId(`dist-${dist}`).click();
+}
+
 /** OB는 dist 없으면 다시 치기, dist 있으면 특설티·드롭 */
 export interface ShotInput { lie: Lie; dist?: string; pen?: boolean; miss?: boolean }
 export interface HoleInput { par: 3 | 4 | 5; len?: string; shots: ShotInput[] }
@@ -31,13 +40,13 @@ export async function enterShots(page: Page, shots: ShotInput[]) {
     if (s.lie === 'OB') {
       if (s.dist) {
         await page.getByTestId('ob-drop').click();
-        await page.getByTestId(`dist-${s.dist}`).click();
+        await pickDist(page, s.dist);
       } else {
         await page.getByTestId('ob-replay').click();
       }
     } else if (s.lie !== 'HOLED') {
       if (!s.dist) throw new Error(`shot ${i + 1}: dist required for lie ${s.lie}`);
-      await page.getByTestId(`dist-${s.dist}`).click();
+      await pickDist(page, s.dist);
     }
     await expect(page.getByTestId('shot-row')).toHaveCount(i + 1);
     if (s.pen) await page.getByTestId(`pen-toggle-${i}`).click();
@@ -71,16 +80,16 @@ export const PAR4_GIR: HoleInput = {
   shots: [{ lie: 'FW', dist: '100-150' }, { lie: 'GR', dist: '2-5' }, { lie: 'GR', dist: '0-1' }, { lie: 'HOLED' }],
 };
 
-/** 파3 165m, 4타: 티샷 물(+1) 드롭 FW 20-50 → GR 2-5 → HOLED. GIR ✗ 벌타 1 퍼트 1 */
+/** 파3 165m, 4타: 티샷 물(+1) 드롭 FW 30-50 → GR 2-5 → HOLED. GIR ✗ 벌타 1 퍼트 1 */
 export const PAR3_PENALTY: HoleInput = {
   par: 3, len: 'p3:150-180',
-  shots: [{ lie: 'FW', dist: '20-50', pen: true }, { lie: 'GR', dist: '2-5' }, { lie: 'HOLED' }],
+  shots: [{ lie: 'FW', dist: '30-50', pen: true }, { lie: 'GR', dist: '2-5' }, { lie: 'HOLED' }],
 };
 
-/** 파5 475m, 5타: RO 200+ → FW 50-100 → RO 0-20 → GR 0-1 → HOLED. FIR ✗ GIR ✗ 업앤다운 ✓ */
+/** 파5 475m, 5타: RO 200+ → FW 50-100 → RO 9-12 → GR 0-1 → HOLED. FIR ✗ GIR ✗ 업앤다운 ✓ */
 export const PAR5_SCRAMBLE: HoleInput = {
   par: 5, len: 'p5:450-500',
-  shots: [{ lie: 'RO', dist: '200+' }, { lie: 'FW', dist: '50-100' }, { lie: 'RO', dist: '0-20' }, { lie: 'GR', dist: '0-1' }, { lie: 'HOLED' }],
+  shots: [{ lie: 'RO', dist: '200+' }, { lie: 'FW', dist: '50-100' }, { lie: 'RO', dist: '9-12' }, { lie: 'GR', dist: '0-1' }, { lie: 'HOLED' }],
 };
 
 /** 파4 380m, 5타: 티샷 미스 컨택 RO 150-200 → FW 50-100 → GR 2-5 → GR 0-1 → HOLED. 미스 1/3 (퍼트 제외) */
